@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { LuWind, LuInfo } from 'react-icons/lu';
+import { LuInfo } from 'react-icons/lu';
+import { BrandMark } from './brand-mark';
 import { Navigation } from './navigation';
 import { signOut } from '@/app/login/actions';
 import type { Site } from '@/lib/domain/types';
@@ -20,7 +21,7 @@ export function Shell({
       <header>
         <div className="container row spread">
           <Link className="brand" href={demo ? '/demo' : '/dashboard'}>
-            <LuWind aria-hidden="true" /> Digital Nose
+            <BrandMark /> Digital Nose
           </Link>
           <Navigation suffix={suffix} demo={demo} />
           {demo ? (

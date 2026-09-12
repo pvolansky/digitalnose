@@ -1,6 +1,6 @@
 import { confirmationNotice } from '@/lib/auth/confirmation';
 import Link from 'next/link';
-import { LuWind } from 'react-icons/lu';
+import { BrandMark } from '@/components/brand-mark';
 import { AuthForm } from '@/components/auth-form';
 export default async function Login({
   searchParams,
@@ -15,7 +15,7 @@ export default async function Login({
   return (
     <main className="container auth-page">
       <Link href="/" className="brand">
-        <LuWind aria-hidden="true" /> Digital Nose
+        <BrandMark /> Digital Nose
       </Link>
       <div className="auth-card">
         <p className="eyebrow">A clearer picture of your air</p>

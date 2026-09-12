@@ -286,13 +286,9 @@ header .container {
   font-size: 14px;
   letter-spacing: 0.3px;
 }
-.brand svg {
-  background: var(--accent);
-  color: white;
-  padding: 7px;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
+.brand img {
+  display: block;
+  flex-shrink: 0;
 }
 nav {
   gap: 5px;
