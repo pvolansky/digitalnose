@@ -2,7 +2,6 @@
 
 Digital Nose is an open-source distributed odour-monitoring platform combining low-cost edge sensors, Raspberry Pi telemetry, resident observations, and cloud analytics.
 
-Created by Piotr Wolański.
 Licensed under Apache License 2.0.
 
 V1 connects one-minute ENS160 aggregates with short resident smell reports and timestamped window/occupancy context. Sensor measurements remain the primary record; observations provide context and labels for future analysis.
@@ -160,7 +159,7 @@ PGlite is a development-only embedded PostgreSQL test dependency. Tests create r
 
 ## Author
 
-Digital Nose was created by Piotr Wolański.
+Digital Nose was created by Piotr Wolanski.
 
 ## License
 

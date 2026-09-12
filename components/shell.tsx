@@ -60,7 +60,7 @@ export function Shell({
         )}
         {children}
         <footer>
-          Digital Nose · Created by Piotr Wolański.{' '}
+          Digital Nose
           <span style={{ float: 'right' }}>Open source. Shared understanding.</span>
         </footer>
       </main>
