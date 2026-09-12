@@ -35,7 +35,7 @@ export default async function Settings({
       <p className="eyebrow" style={{ marginTop: 40 }}>
         {site.name} · {role}
       </p>
-      <h1>Make yourself at home.</h1>
+      <h1>Your space.</h1>
       <section className="panel form">
         <h2>Your profile</h2>
         <p className="muted">{user.email}</p>
@@ -66,7 +66,7 @@ export default async function Settings({
                   name="continuous_ventilation"
                   defaultChecked={site.continuous_ventilation}
                 />
-                Continuous ventilation
+                Mechanical ventilation runs continuously
               </label>
             </SettingsForm>
           </section>

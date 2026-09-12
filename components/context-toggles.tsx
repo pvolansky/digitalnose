@@ -8,22 +8,28 @@ export function ContextToggles({
   userId,
   events,
   demo = false,
+  onDemoChange,
 }: {
   siteId: string;
   userId: string;
   events: StateEvent[];
   demo?: boolean;
+  onDemoChange?: (type: StateEvent['event_type'], value: boolean) => void;
 }) {
   const current = currentState(events, userId);
   const [demoState, setDemoState] = useState(current);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
-  const values = demo ? demoState : current;
+  const [saved, setSaved] = useState<{
+    baseline: StateEvent[];
+    values: ReturnType<typeof currentState>;
+  } | null>(null);
+  const values = demo ? demoState : saved?.baseline === events ? saved.values : current;
   return (
     <section className="panel">
-      <h2>Current context</h2>
+      <h2>What’s happening now</h2>
       <p className="muted" style={{ fontSize: 13 }}>
-        A little context helps explain the readings.
+        Record window changes and your presence to compare them with the chart.
       </p>
       <div className="context-grid">
         {(['window_open', 'user_in_room'] as const).map((type) => (
@@ -49,12 +55,21 @@ export function ContextToggles({
               onClick={() => {
                 if (demo) {
                   setDemoState({ ...values, [type]: !values[type] });
+                  onDemoChange?.(type, !values[type]);
                   return;
                 }
                 startTransition(async () => {
                   setError('');
-                  const result = await changeState(siteId, type, !values[type]);
-                  if (result.error) setError(result.error);
+                  try {
+                    const result = await changeState(siteId, type, !values[type]);
+                    if (result.error) setError(result.error);
+                    else {
+                      setSaved({ baseline: events, values: { ...values, [type]: !values[type] } });
+                      window.dispatchEvent(new Event('digitalnose:updated'));
+                    }
+                  } catch {
+                    setError('Could not confirm the change. Please check your connection.');
+                  }
                 });
               }}
             >

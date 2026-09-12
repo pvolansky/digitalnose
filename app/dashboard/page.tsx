@@ -1,17 +1,12 @@
-import { Realtime } from '@/components/realtime';
-import { loadState } from '@/lib/domain/site-state';
-import { ContextToggles } from '@/components/context-toggles';
+import { loadOverview } from '@/lib/domain/overview';
+import { Overview } from '@/components/overview';
 import { requestTime } from '@/lib/domain/time';
-import { loadReports } from '@/lib/domain/reports';
-import { RecentReports } from '@/components/recent-reports';
 import { ReportButton } from '@/components/report-form';
 import Link from 'next/link';
 import { siteContext } from '@/lib/domain/sites';
-import { loadReadings, loadLatestReading, parseRange, ranges } from '@/lib/domain/readings';
+import { parseRange } from '@/lib/domain/readings';
 import { Shell } from '@/components/shell';
 import { CreateSite } from '@/components/create-site';
-import { LiveReading } from '@/components/live-reading';
-import { ReadingChart } from '@/components/reading-chart';
 export default async function Dashboard({
   searchParams,
 }: {
@@ -28,24 +23,35 @@ export default async function Dashboard({
   const range = parseRange(params.range);
   const device = devices.find((d) => d.id === params.device) || devices[0];
   const now = await requestTime();
-  const [readings, latest] = device
-    ? await Promise.all([loadReadings(db, device.id, range, now), loadLatestReading(db, device.id)])
-    : [[], null];
-  const [reports, events] = await Promise.all([
-    loadReports(db, site.id),
-    loadState(db, site.id, user.id),
+  const [result] = await Promise.allSettled([
+    loadOverview(db, site.id, user.id, device?.id, range, now),
   ]);
+  const initialError = result.status === 'rejected';
+  const initial =
+    result.status === 'fulfilled'
+      ? result.value
+      : {
+          now,
+          readings: [],
+          latest: null,
+          events: [],
+          currentEvents: [],
+          reports: [],
+          recentReports: [],
+        };
   return (
     <Shell site={site} sites={sites}>
-      <div className="row spread" style={{ padding: '32px 0' }}>
+      <div className="row spread page-heading">
         <div>
           <p className="eyebrow">{site.name}</p>
-          <h1 style={{ margin: '14px 0' }}>A little more clarity.</h1>
-          <p className="muted">Your air, measured. Your experience, recorded.</p>
+          <h1 style={{ margin: '14px 0' }}>Your air, in context.</h1>
+          <p className="muted">
+            See how your surroundings and observations line up with the readings.
+          </p>
         </div>
-        <span className="tag">
-          {site.continuous_ventilation ? 'Continuous ventilation' : 'Ventilation not continuous'}
-        </span>
+        <div className="heading-actions">
+          <ReportButton siteId={site.id} />
+        </div>
       </div>
       {devices.length > 1 && (
         <div className="row">
@@ -61,32 +67,15 @@ export default async function Dashboard({
           ))}
         </div>
       )}
-      <LiveReading reading={latest} initialNow={now} />
-      <div className="row spread">
-        <span className="muted">{device?.name || 'Add a device in Settings'}</span>
-        <div className="row" aria-label="Time range">
-          {Object.keys(ranges).map((r) => (
-            <Link
-              className={`button ${range === r ? '' : 'secondary'}`}
-              key={r}
-              href={`/dashboard?site=${site.id}&device=${device?.id || ''}&range=${r}`}
-              aria-current={range === r ? 'page' : undefined}
-            >
-              {r}
-            </Link>
-          ))}
-        </div>
-      </div>
-      <ReadingChart
-        readings={readings}
-        timezone={site.timezone}
-        start={now - ranges[range] * 3600000}
-        end={now}
+      <Overview
+        key={`${site.id}:${device?.id}:${range}`}
+        initial={initial}
+        initialError={initialError}
+        site={site}
+        userId={user.id}
+        device={device}
+        range={range}
       />
-      <ContextToggles siteId={site.id} userId={user.id} events={events} />
-      <ReportButton siteId={site.id} />
-      <RecentReports reports={reports} timezone={site.timezone} />
-      <Realtime siteId={site.id} deviceId={device?.id} />
     </Shell>
   );
 }

@@ -1,6 +1,7 @@
 'use server';
 import { requireUser } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import type { ActionResult } from '@/lib/domain/types';
 export async function createSite(_: ActionResult, form: FormData): Promise<ActionResult> {
   const name = String(form.get('name') || '').trim();
@@ -20,6 +21,7 @@ export async function manageSettings(_: ActionResult, form: FormData): Promise<A
     if (name.length > 100) return { error: 'Name is too long.' };
     const { error } = await db.from('profiles').update({ display_name: name }).eq('id', user.id);
     if (error) return { error: 'Could not save your name.' };
+    revalidatePath('/settings');
     return { message: 'Name saved.' };
   }
   const { data: membership } = await db
@@ -111,7 +113,6 @@ export async function manageSettings(_: ActionResult, form: FormData): Promise<A
           ? 'Ask the resident to sign up first, then add their email.'
           : 'Could not save this change. Check the values and try again.',
     };
-  const { revalidatePath } = await import('next/cache');
   revalidatePath('/settings');
   revalidatePath('/dashboard');
   return { message: 'Saved.' };

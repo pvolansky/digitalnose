@@ -1,5 +1,6 @@
 import { confirmationNotice } from '@/lib/auth/confirmation';
 import Link from 'next/link';
+import { LuWind } from 'react-icons/lu';
 import { AuthForm } from '@/components/auth-form';
 export default async function Login({
   searchParams,
@@ -8,29 +9,29 @@ export default async function Login({
 }) {
   const notice = confirmationNotice((await searchParams).confirmation);
   return (
-    <main className="container" style={{ maxWidth: 500, paddingTop: 90 }}>
+    <main className="container auth-page">
       <Link href="/" className="brand">
-        ◉ DIGITAL NOSE
+        <LuWind aria-hidden="true" /> Digital Nose
       </Link>
-      <p className="eyebrow" style={{ marginTop: 64 }}>
-        A clearer picture of your air
-      </p>
-      <h1>Welcome home.</h1>
-      <p className="muted">Connect your observations with the air around you.</p>
-      {notice && (
-        <p
-          role="status"
-          style={{
-            padding: 16,
-            border: '1px solid var(--line)',
-            borderRadius: 6,
-            marginBottom: 24,
-          }}
-        >
-          {notice}
-        </p>
-      )}
-      <AuthForm />
+      <div className="auth-card">
+        <p className="eyebrow">A clearer picture of your air</p>
+        <h1>Welcome home.</h1>
+        <p className="muted">Connect your observations with the air around you.</p>
+        {notice && (
+          <p
+            role="status"
+            style={{
+              padding: 16,
+              border: '1px solid var(--line)',
+              borderRadius: 6,
+              marginBottom: 24,
+            }}
+          >
+            {notice}
+          </p>
+        )}
+        <AuthForm />
+      </div>
       <p className="muted" style={{ marginTop: 28 }}>
         Just exploring?{' '}
         <Link href="/demo" style={{ textDecoration: 'underline' }}>

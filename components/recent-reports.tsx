@@ -3,7 +3,7 @@ const intensityLabels = ['', 'Faint', 'Mild', 'Moderate', 'Strong', 'Very strong
 export function RecentReports({ reports, timezone }: { reports: SmellReport[]; timezone: string }) {
   return (
     <section className="panel">
-      <h2>Recent reports</h2>
+      <h2>Recent observations</h2>
       {reports.length ? (
         reports.map((r) => (
           <article

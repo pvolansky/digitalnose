@@ -1,9 +1,46 @@
 'use client';
-import { useActionState, useRef } from 'react';
+import { useActionState, useRef, useState, useId } from 'react';
+import { LuPlus, LuX, LuLoaderCircle } from 'react-icons/lu';
 import { reportSmell } from '@/app/report/actions';
 import { smellTypes } from '@/lib/domain/reports';
-export function ReportForm({ siteId, demo = false }: { siteId: string; demo?: boolean }) {
-  const [state, action, pending] = useActionState(reportSmell, {});
+export function ReportForm({
+  siteId,
+  demo = false,
+  onDone,
+}: {
+  siteId: string;
+  demo?: boolean;
+  onDone?: () => void;
+}) {
+  const [intensity, setIntensity] = useState('');
+  const [smellType, setSmellType] = useState('');
+  const [note, setNote] = useState('');
+  const [state, action, pending] = useActionState(
+    async (previous: import('@/lib/domain/types').ActionResult, form: FormData) => {
+      try {
+        const result = await reportSmell(previous, form);
+        if (result.message) window.dispatchEvent(new Event('digitalnose:updated'));
+        return result;
+      } catch {
+        return {
+          error:
+            'We could not confirm the save. Check your reports before trying again. Your note is still here.',
+        };
+      }
+    },
+    {},
+  );
+  if (state.message)
+    return (
+      <div className="stack">
+        <p role="status" className="success">
+          {state.message}
+        </p>
+        <button type="button" onClick={onDone}>
+          Done
+        </button>
+      </div>
+    );
   return (
     <form
       action={demo ? undefined : action}
@@ -20,6 +57,8 @@ export function ReportForm({ siteId, demo = false }: { siteId: string; demo?: bo
                 type="radio"
                 name="intensity"
                 value={n}
+                checked={intensity === String(n)}
+                onChange={(e) => setIntensity(e.target.value)}
                 required
                 aria-label={`${n} out of 5`}
               />
@@ -36,7 +75,12 @@ export function ReportForm({ siteId, demo = false }: { siteId: string; demo?: bo
         <label htmlFor="smell_type">
           Type <span className="muted">(optional)</span>
         </label>
-        <select id="smell_type" name="smell_type">
+        <select
+          id="smell_type"
+          name="smell_type"
+          value={smellType}
+          onChange={(e) => setSmellType(e.target.value)}
+        >
           <option value="">Choose a type</option>
           {smellTypes.map((s) => (
             <option key={s}>{s}</option>
@@ -50,6 +94,8 @@ export function ReportForm({ siteId, demo = false }: { siteId: string; demo?: bo
         <textarea
           id="note"
           name="note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
           rows={3}
           maxLength={1000}
           placeholder="Anything you noticed…"
@@ -68,34 +114,47 @@ export function ReportForm({ siteId, demo = false }: { siteId: string; demo?: bo
       {demo ? (
         <p className="muted">Demo only. Sign in to save observations.</p>
       ) : (
-        <button disabled={pending}>{pending ? 'Saving…' : 'Report smell'}</button>
+        <button disabled={pending}>
+          {pending && <LuLoaderCircle className="spin" aria-hidden="true" />}
+          {pending ? 'Saving…' : 'Report smell'}
+        </button>
       )}
     </form>
   );
 }
 export function ReportButton({ siteId, demo = false }: { siteId: string; demo?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [formKey, setFormKey] = useState(0);
+  const titleId = useId();
   return (
     <>
       <button
         className="mobile-report"
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => {
+          setFormKey((k) => k + 1);
+          dialog.current?.showModal();
+        }}
         style={{ minWidth: 220, padding: '17px 26px' }}
       >
-        ＋ I can smell it
+        <LuPlus aria-hidden="true" /> Report a smell
       </button>
-      <dialog ref={dialog} aria-labelledby="report-title">
+      <dialog ref={dialog} aria-labelledby={titleId}>
         <div className="row spread">
-          <h2 id="report-title">Record a smell</h2>
+          <h2 id={titleId}>Record a smell</h2>
           <button
             className="secondary"
             aria-label="Close report form"
             onClick={() => dialog.current?.close()}
           >
-            ×
+            <LuX aria-hidden="true" />
           </button>
         </div>
-        <ReportForm siteId={siteId} demo={demo} />
+        <ReportForm
+          key={formKey}
+          siteId={siteId}
+          demo={demo}
+          onDone={() => dialog.current?.close()}
+        />
       </dialog>
     </>
   );

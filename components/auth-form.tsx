@@ -1,5 +1,6 @@
 'use client';
 import { useActionState, useState } from 'react';
+import { LuLoaderCircle } from 'react-icons/lu';
 import { authenticate } from '@/app/login/actions';
 export function AuthForm() {
   const [mode, setMode] = useState('login');
@@ -36,6 +37,7 @@ export function AuthForm() {
         </p>
       )}
       <button disabled={pending}>
+        {pending && <LuLoaderCircle className="spin" aria-hidden="true" />}
         {pending
           ? 'Please wait…'
           : mode === 'resend'

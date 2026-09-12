@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { LuWind, LuInfo } from 'react-icons/lu';
+import { Navigation } from './navigation';
 import { signOut } from '@/app/login/actions';
 import type { Site } from '@/lib/domain/types';
 export function Shell({
@@ -18,13 +20,9 @@ export function Shell({
       <header>
         <div className="container row spread">
           <Link className="brand" href={demo ? '/demo' : '/dashboard'}>
-            ◉ DIGITAL NOSE
+            <LuWind aria-hidden="true" /> Digital Nose
           </Link>
-          <nav aria-label="Main navigation">
-            <Link href={demo ? '/demo' : `/dashboard${suffix}`}>Dashboard</Link>
-            <Link href={demo ? '/login' : `/report${suffix}`}>Reports</Link>
-            <Link href={demo ? '/login' : `/settings${suffix}`}>Settings</Link>
-          </nav>
+          <Navigation suffix={suffix} demo={demo} />
           {demo ? (
             <Link className="tag" href="/login">
               Sign in
@@ -40,7 +38,8 @@ export function Shell({
       </header>
       <main className="container">
         {demo && (
-          <p className="tag" style={{ display: 'inline-block' }}>
+          <p className="demo-banner">
+            <LuInfo aria-hidden="true" />
             Demo · illustrative data, no live sensor connected
           </p>
         )}
@@ -60,8 +59,10 @@ export function Shell({
         )}
         {children}
         <footer>
-          Digital Nose
-          <span style={{ float: 'right' }}>Open source. Shared understanding.</span>
+          <span>Open-source air sensing</span>
+          <span>
+            Created by <a href="https://piotrwolanski.com">Piotr Wolanski</a>
+          </span>
         </footer>
       </main>
     </>

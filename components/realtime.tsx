@@ -1,10 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { LuRadio } from 'react-icons/lu';
 import { browserClient } from '@/lib/supabase/client';
-export function Realtime({ siteId, deviceId }: { siteId: string; deviceId?: string }) {
-  const router = useRouter();
-  const [status, setStatus] = useState('Connecting to live updates…');
+export function Realtime({
+  siteId,
+  deviceId,
+  onUpdate,
+}: {
+  siteId: string;
+  deviceId?: string;
+  onUpdate: () => void;
+}) {
+  const [status, setStatus] = useState('Connecting…');
   useEffect(() => {
     const db = browserClient();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -13,7 +20,7 @@ export function Realtime({ siteId, deviceId }: { siteId: string; deviceId?: stri
       if (!timer)
         timer = setTimeout(() => {
           timer = undefined;
-          if (!disposed) router.refresh();
+          if (!disposed) onUpdate();
         }, 300);
     };
     let channel = db
@@ -52,7 +59,7 @@ export function Realtime({ siteId, deviceId }: { siteId: string; deviceId?: stri
     channel.subscribe((s) => {
       if (disposed) return;
       if (s === 'SUBSCRIBED') {
-        setStatus('Live updates connected');
+        setStatus('Live sync connected');
         refresh();
       } else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT' || s === 'CLOSED')
         setStatus('Reconnecting · checking for updates every minute');
@@ -63,17 +70,20 @@ export function Realtime({ siteId, deviceId }: { siteId: string; deviceId?: stri
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('online', refresh);
+    window.addEventListener('digitalnose:updated', refresh);
     return () => {
       disposed = true;
       if (timer) clearTimeout(timer);
       clearInterval(fallback);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('online', refresh);
+      window.removeEventListener('digitalnose:updated', refresh);
       void db.removeChannel(channel);
     };
-  }, [siteId, deviceId, router]);
+  }, [siteId, deviceId, onUpdate]);
   return (
-    <p className="muted" role="status" style={{ fontSize: 11 }}>
+    <p className="sync-status" role="status">
+      <LuRadio aria-hidden="true" />
       {status}
     </p>
   );

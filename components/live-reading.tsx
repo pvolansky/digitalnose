@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { MetricBadge, MetricInfo } from './metric-info';
 import type { Reading } from '@/lib/domain/types';
 export function LiveReading({
   reading,
@@ -40,13 +41,17 @@ export function LiveReading({
       </div>
       <div className="metrics">
         {[
-          ['TVOC', reading?.tvoc_mean, 'ppb'],
-          ['eCO₂', reading?.eco2_mean, 'ppm'],
-          ['AQI', reading?.aqi_max, '/ 5'],
-        ].map(([label, value, unit]) => (
+          ['TVOC', reading?.tvoc_mean, 'ppb', 'tvoc_mean'],
+          ['eCO₂', reading?.eco2_mean, 'ppm', 'eco2_mean'],
+          ['AQI', reading?.aqi_max, '/ 5', 'aqi_max'],
+        ].map(([label, value, unit, key]) => (
           <div key={label}>
             <p className="muted" style={{ fontSize: 14 }}>
               {label}
+              <MetricInfo
+                metric={key as import('@/lib/domain/air-quality').Metric}
+                label={String(label)}
+              />
             </p>
             <div>
               <span className="metric-value">
@@ -58,6 +63,11 @@ export function LiveReading({
                 {unit}
               </span>
             </div>
+            <MetricBadge
+              metric={key as import('@/lib/domain/air-quality').Metric}
+              value={value == null ? null : Number(value)}
+              stale={stale && !demo}
+            />
           </div>
         ))}
       </div>

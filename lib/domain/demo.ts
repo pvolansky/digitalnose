@@ -54,22 +54,21 @@ export function demoData(now: number) {
     },
   ];
   const events: StateEvent[] = [
-    {
-      id: 's1',
-      site_id: 'demo',
-      user_id: 'demo-user',
-      event_type: 'window_open',
-      value: false,
-      recorded_at: new Date(end).toISOString(),
-    },
-    {
-      id: 's2',
-      site_id: 'demo',
-      user_id: 'demo-user',
-      event_type: 'user_in_room',
-      value: true,
-      recorded_at: new Date(end).toISOString(),
-    },
-  ];
+    ['window_open', false, 1500],
+    ['user_in_room', false, 1500],
+    ['user_in_room', true, 960],
+    ['window_open', true, 460],
+    ['window_open', false, 365],
+    ['user_in_room', false, 300],
+    ['user_in_room', true, 80],
+  ].map(([type, value, minutes], i) => ({
+    id: `s${i}`,
+    site_id: 'demo',
+    user_id: 'demo-user',
+    event_type: type as StateEvent['event_type'],
+    value: value as boolean,
+    recorded_at: new Date(end - Number(minutes) * 60000).toISOString(),
+  }));
+
   return { site, device, readings, reports, events };
 }

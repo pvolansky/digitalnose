@@ -1,5 +1,4 @@
 'use server';
-import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth/session';
 import type { ActionResult } from '@/lib/domain/types';
 export async function changeState(
@@ -14,6 +13,5 @@ export async function changeState(
     .from('site_state_events')
     .insert({ site_id: siteId, user_id: user.id, event_type: type, value });
   if (error) return { error: 'Could not save this change. Please try again.' };
-  revalidatePath('/dashboard');
   return { message: 'Context updated.' };
 }
