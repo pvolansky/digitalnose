@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {validateReport} from '../lib/domain/reports';
+test('requires an intensity and validates optional report labels',()=>{const f=new FormData();assert.throws(()=>validateReport(f));f.set('intensity','4');assert.deepEqual(validateReport(f),{intensity:4,note:null,smell_type:null});f.set('note','x'.repeat(1001));assert.throws(()=>validateReport(f));f.set('note','fine');f.set('smell_type','invented');assert.throws(()=>validateReport(f));});
