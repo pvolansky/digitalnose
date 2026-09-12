@@ -10,6 +10,7 @@ test('Postgres RLS isolates sites and prevents resident privilege escalation',as
  grant usage on schema public,auth to authenticated,anon,service_role;
  grant execute on function auth.uid() to authenticated,anon,service_role;`);
  await db.exec(readFileSync('supabase/migrations/202609120001_initial.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/202609120002_ingest.sql','utf8'));
  const owner='00000000-0000-4000-8000-000000000001', resident='00000000-0000-4000-8000-000000000002', stranger='00000000-0000-4000-8000-000000000003';
  await db.query(`insert into auth.users(id,email) values ($1,'owner@test.invalid'),($2,'resident@test.invalid'),($3,'stranger@test.invalid')`,[owner,resident,stranger]);
  async function login(id:string){await db.exec(`reset role; set role authenticated; set request.jwt.claim.sub='${id}'`)}
@@ -31,6 +32,19 @@ test('Postgres RLS isolates sites and prevents resident privilege escalation',as
  await assert.rejects(db.query('insert into public.site_state_events(site_id,user_id,event_type,value) values($1,$2,$3,true)',[site,stranger,'window_open']));
  await login(owner);
  await db.query('select public.rotate_device_key($1,$2)',[device,'a'.repeat(64)]);
+ const payload={device_identifier:'test-001',minute_start_utc:'2026-01-01T00:00:00Z',tvoc_mean:180,tvoc_min:160,tvoc_max:200,eco2_mean:650,eco2_min:600,eco2_max:700,aqi_max:2,sample_count:12};
+ await assert.rejects(db.query('select public.ingest_minute($1,$2)',[payload,'a'.repeat(64)]));
+ await db.exec('reset role;set role service_role');
+ assert.equal((await db.query<{ok:boolean}>('select public.ingest_minute($1,$2) as ok',[payload,'b'.repeat(64)])).rows[0].ok,false);
+ for(let i=0;i<2;i++) assert.equal((await db.query<{ok:boolean}>('select public.ingest_minute($1,$2) as ok',[payload,'a'.repeat(64)])).rows[0].ok,true);
+ assert.equal((await db.query('select * from public.minute_aggregates')).rows.length,1);
+ assert.ok((await db.query<{last_seen_at:string}>('select last_seen_at from public.devices')).rows[0].last_seen_at);
+ await login(stranger);assert.equal((await db.query('select * from public.minute_aggregates')).rows.length,0);
+ await login(resident);assert.equal((await db.query('select * from public.minute_aggregates')).rows.length,1);
+ await login(owner);await db.query('select public.revoke_device_key($1)',[device]);
+ await db.exec('reset role;set role service_role');
+ assert.equal((await db.query<{ok:boolean}>('select public.ingest_minute($1,$2) as ok',[payload,'a'.repeat(64)])).rows[0].ok,false);
+ await login(owner);
  await db.query('select public.remove_resident($1,$2)',[site,owner]);
  assert.equal((await db.query("select * from public.site_members where role='owner'")).rows.length,1);
  await db.query('select public.remove_resident($1,$2)',[site,resident]);
