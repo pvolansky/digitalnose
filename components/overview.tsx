@@ -1,5 +1,7 @@
 'use client';
 import { useCallback, useState } from 'react';
+import { WeatherCard } from './weather-card';
+import { validCoordinates } from '@/lib/weather/coordinates';
 import { RangeLink } from './range-link';
 import { LuRefreshCw } from 'react-icons/lu';
 import type { Site, Device } from '@/lib/domain/types';
@@ -56,13 +58,21 @@ export function Overview({
         initialNow={data.now}
         demo={demo}
       />
+      <WeatherCard
+        observation={data.weather.latest}
+        now={data.now}
+        timezone={site.timezone}
+        configured={validCoordinates(site.latitude, site.longitude)}
+        unavailable={data.weather.unavailable}
+        demo={demo}
+      />
       <div className="row spread chart-toolbar">
         <span className="muted">
           {device ? 'Reading history' : 'No sensor connected'}
           {!demo && live.updating ? ' · Updating…' : ''}
         </span>
         {!demo && (
-          <div className="segmented" aria-label="Time range">
+          <div className="segmented chart-filters" aria-label="Time range">
             {Object.keys(ranges).map((r) => (
               <RangeLink
                 key={r}
@@ -75,6 +85,7 @@ export function Overview({
         )}
       </div>
       <ReadingChart
+        weather={data.weather.history}
         readings={data.readings}
         events={data.events}
         reports={data.reports}

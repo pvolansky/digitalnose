@@ -33,6 +33,7 @@ export default async function Dashboard({
       : {
           now,
           lastSeenAt: device?.last_seen_at ?? null,
+          weather: { latest: null, history: [], unavailable: true },
           readings: [],
           latest: null,
           events: [],

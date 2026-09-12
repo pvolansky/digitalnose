@@ -3,6 +3,12 @@ import { useState, useEffect, useRef, useId, useMemo, useDeferredValue } from 'r
 import { LuRadio, LuWind, LuUserRound, LuMessageCircle, LuTrendingUp } from 'react-icons/lu';
 import type { Reading, StateEvent, SmellReport } from '@/lib/domain/types';
 import { MetricBadge, MetricInfo } from './metric-info';
+import { WeatherAtMoment } from './weather-card';
+import { reportMarkers, weatherMarkers } from '@/lib/domain/chart-context';
+import { degreesToCompass, oppositeBearing } from '@/lib/weather/wind';
+import { weatherValue, windDescription } from '@/lib/weather/context';
+import { nearestWeather } from '@/lib/weather/context';
+import type { WeatherObservation } from '@/lib/weather/types';
 import { splitReadingGaps } from '@/lib/domain/readings';
 import { contextAt, stateIntervals } from '@/lib/domain/timeline';
 const metrics = {
@@ -33,6 +39,7 @@ export function ReadingChart({
   events = [],
   reports = [],
   userId = '',
+  weather = [],
 }: {
   readings: Reading[];
   timezone: string;
@@ -41,6 +48,7 @@ export function ReadingChart({
   events?: StateEvent[];
   reports?: SmellReport[];
   userId?: string;
+  weather?: WeatherObservation[];
 }) {
   const [view, setView] = useState<keyof typeof metrics | 'combined'>('tvoc_mean');
   const renderedView = useDeferredValue(view);
@@ -152,9 +160,16 @@ export function ReadingChart({
   const visibleReports = reports.filter(
     (r) => Date.parse(r.reported_at) >= start && Date.parse(r.reported_at) <= end,
   );
-  const selectedReports = visibleReports.filter(
-    (r) => Math.floor(Date.parse(r.reported_at) / 60000) === Math.floor(at / 60000),
-  );
+  const reportGroups = reportMarkers(visibleReports, start, end, right - left);
+  const snapToReport = (time: number) =>
+    reportGroups.find((group) => Math.abs(group.at - time) <= ((end - start) * 14) / (right - left))
+      ?.at ?? time;
+  const windMarkers = weatherMarkers(weather, start, end, right - left);
+  const selectedReports =
+    reportGroups.find((group) => group.at === at)?.reports ??
+    visibleReports.filter(
+      (r) => Math.floor(Date.parse(r.reported_at) / 60000) === Math.floor(at / 60000),
+    );
   const windowIntervals = useMemo(
     () => stateIntervals(events, userId, 'window_open', start, end),
     [events, userId, start, end],
@@ -219,7 +234,7 @@ export function ReadingChart({
           <p className="eyebrow">The full picture</p>
           <h2 id={`${id}-title`}>Readings & surroundings</h2>
         </div>
-        <div className="segmented" role="group" aria-label="Chart measurement">
+        <div className="segmented chart-filters" role="group" aria-label="Chart measurement">
           {Object.entries(metrics).map(([key, value]) => (
             <button
               key={key}
@@ -298,37 +313,41 @@ export function ReadingChart({
       </div>
       <div ref={chartRef} className="chart-canvas">
         <svg
-          viewBox={`0 0 ${width} 304`}
-          style={{ width: '100%', height: 304, display: 'block' }}
-          role="img"
+          viewBox={`0 0 ${width} 402`}
+          style={{ width: '100%', height: 402, display: 'block' }}
+          role="group"
           aria-label={`${combined ? 'All measurements on separate normalised scales' : meta.name} timeline with window, personal presence and smell reports. Use the time slider or event list to inspect.`}
           onPointerMove={(e) => {
             if (e.pointerType === 'touch') return;
             const rect = e.currentTarget.getBoundingClientRect();
             setSelectedAt(
-              start +
-                Math.max(
-                  0,
-                  Math.min(
-                    1,
-                    (((e.clientX - rect.left) * width) / rect.width - left) / (right - left),
-                  ),
-                ) *
-                  (end - start),
+              snapToReport(
+                start +
+                  Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      (((e.clientX - rect.left) * width) / rect.width - left) / (right - left),
+                    ),
+                  ) *
+                    (end - start),
+              ),
             );
           }}
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             setSelectedAt(
-              start +
-                Math.max(
-                  0,
-                  Math.min(
-                    1,
-                    (((e.clientX - rect.left) * width) / rect.width - left) / (right - left),
-                  ),
-                ) *
-                  (end - start),
+              snapToReport(
+                start +
+                  Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      (((e.clientX - rect.left) * width) / rect.width - left) / (right - left),
+                    ),
+                  ) *
+                    (end - start),
+              ),
             );
           }}
         >
@@ -379,20 +398,68 @@ export function ReadingChart({
             ),
           )}
           {plotLines}
-          {visibleReports.map((r) => (
-            <g key={r.id}>
-              <line
-                x1={x(Date.parse(r.reported_at))}
-                x2={x(Date.parse(r.reported_at))}
-                y1="24"
-                y2={plotBottom}
-                stroke="var(--report-color)"
-                strokeOpacity=".45"
-                strokeDasharray="3 4"
-              />
-              <circle cx={x(Date.parse(r.reported_at))} cy="23" r="4" fill="var(--report-color)" />
-            </g>
-          ))}
+          {reportGroups.map((group) => {
+            const label = group.reports
+              .map(
+                (r) =>
+                  `${localTime(Date.parse(r.reported_at))}: ${r.user_id === userId ? 'You' : 'Site member'} · ${r.smell_type || 'Smell'} · ${r.intensity}/5${r.note ? ` · ${r.note}` : ''}`,
+              )
+              .join('\n');
+            return (
+              <g
+                key={group.at}
+                role="button"
+                tabIndex={0}
+                aria-label={`${group.reports.length} smell report(s). ${label}`}
+                className="chart-event-marker"
+                onPointerMove={(event) => {
+                  event.stopPropagation();
+                  setSelectedAt(group.at);
+                }}
+                onFocus={() => setSelectedAt(group.at)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelectedAt(group.at);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedAt(group.at);
+                  }
+                }}
+              >
+                <title>{label}</title>
+                <line
+                  x1={x(group.at)}
+                  x2={x(group.at)}
+                  y1="24"
+                  y2={plotBottom}
+                  stroke="var(--report-color)"
+                  strokeOpacity=".45"
+                  strokeDasharray="3 4"
+                />
+                <circle cx={x(group.at)} cy="23" r="14" fill="transparent" />
+                <circle
+                  cx={x(group.at)}
+                  cy="23"
+                  r={group.reports.length > 1 ? 10 : 5}
+                  fill="var(--report-color)"
+                />
+                {group.reports.length > 1 && (
+                  <text
+                    x={x(group.at)}
+                    y="27"
+                    textAnchor="middle"
+                    fill="white"
+                    fontSize="10"
+                    pointerEvents="none"
+                  >
+                    {group.reports.length}
+                  </text>
+                )}
+              </g>
+            );
+          })}
           <line
             x1={x(at)}
             x2={x(at)}
@@ -441,6 +508,71 @@ export function ReadingChart({
               ))}
             </g>
           ))}
+          <line x1={left} x2={right} y1="307" y2="307" stroke="var(--line)" />
+          <text x={left} y="326" fontSize="11" fill="var(--muted)">
+            Wind · km/h · direction from
+          </text>
+          {windMarkers.map((row) => {
+            const time = Date.parse(row.observed_at_utc);
+            const position = Math.max(left + 30, Math.min(right - 30, x(time)));
+            const label = `${localTime(time)} · ${windDescription(row)} · Gusts ${weatherValue(row.wind_gust_kmh, 'km/h')} · ${weatherValue(row.temperature_c, '°C')} · Rain ${weatherValue(row.precipitation_mm, 'mm')}`;
+            return (
+              <g
+                key={row.observed_at_utc}
+                role="button"
+                tabIndex={0}
+                aria-label={label}
+                className="chart-event-marker"
+                onPointerMove={(event) => {
+                  event.stopPropagation();
+                  setSelectedAt(time);
+                }}
+                onFocus={() => setSelectedAt(time)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelectedAt(time);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedAt(time);
+                  }
+                }}
+              >
+                <title>{label}</title>
+                <rect x={position - 30} y="332" width="60" height="65" rx="8" fill="var(--paper)" />
+                {row.wind_direction_deg !== null && (
+                  <path
+                    d="M0 8V-8M-5-3L0-8L5-3"
+                    transform={`translate(${position} 346) rotate(${oppositeBearing(row.wind_direction_deg)})`}
+                    fill="none"
+                    stroke="var(--chart-line)"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+                <text x={position} y="373" textAnchor="middle" fill="var(--ink)" fontSize="11">
+                  {row.wind_direction_deg === null ? '—' : degreesToCompass(row.wind_direction_deg)}{' '}
+                  · {weatherValue(row.wind_speed_kmh, '').trim()}
+                </text>
+                <text x={position} y="389" textAnchor="middle" fill="var(--muted)" fontSize="9">
+                  {localTime(time, true)}
+                </text>
+              </g>
+            );
+          })}
+          {!windMarkers.length && (
+            <text
+              x={(left + right) / 2}
+              y="368"
+              textAnchor="middle"
+              fontSize="11"
+              fill="var(--muted)"
+            >
+              No weather recorded in this range
+            </text>
+          )}
           {!readings.length && (
             <text
               x={(left + right) / 2}
@@ -455,7 +587,6 @@ export function ReadingChart({
         </svg>
       </div>
       <div className="track-key muted">
-        <span>Tracks: window · your presence</span>
         <span>
           <i /> Grey = off · dashed = unrecorded
         </span>
@@ -508,7 +639,9 @@ export function ReadingChart({
               <div key={r.id}>
                 <span>
                   <LuMessageCircle aria-hidden="true" />
+                  {r.user_id === userId ? 'You' : 'Site member'} ·{' '}
                   {r.smell_type || 'Smell reported'} · {r.intensity}/5
+                  <small>{localTime(Date.parse(r.reported_at))}</small>
                 </span>
                 {r.note && <p>{r.note}</p>}
               </div>
@@ -518,6 +651,7 @@ export function ReadingChart({
           )}
         </div>
       </div>
+      <WeatherAtMoment observation={nearestWeather(weather, at)} />
       <p className="chart-help muted">
         Window shading and presence tracks show recorded context, not the cause of a peak. Gaps in
         the line mean missing sensor data.

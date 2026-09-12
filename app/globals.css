@@ -1219,3 +1219,118 @@ footer a {
 .signup-guidance p + p {
   margin-top: 8px;
 }
+
+.weather-panel h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.weather-panel > .row > span,
+.weather-note {
+  font-size: 12px;
+}
+.weather-wind {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  margin: 20px 0;
+}
+.weather-wind svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.weather-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  margin: 0;
+}
+.weather-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.weather-facts dd {
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+.weather-note {
+  margin-top: 16px;
+  line-height: 1.6;
+}
+.weather-note a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.inspector-weather {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 16px 0 0;
+  font-size: 12px;
+}
+
+/* Compact chart controls with centered labels and comfortable touch targets. */
+.chart-toolbar,
+.chart-heading {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.chart-toolbar .chart-filters,
+.chart-heading .chart-filters {
+  width: auto;
+  max-width: 100%;
+  justify-content: center;
+  flex-wrap: nowrap;
+  padding: 3px;
+  gap: 2px;
+}
+.chart-filters button,
+.chart-filters .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+  min-height: 32px;
+  padding: 5px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.chart-event-marker {
+  cursor: pointer;
+  outline: none;
+}
+.chart-event-marker:focus-visible > rect,
+.chart-event-marker:focus-visible > circle {
+  stroke: var(--ink);
+  stroke-width: 2px;
+}
+.inspector-reports small {
+  display: block;
+  color: var(--muted);
+}
+@media (pointer: coarse) {
+  .chart-filters button,
+  .chart-filters .button {
+    min-height: 44px;
+  }
+}
+
+.chart-filters .button {
+  padding-inline: 20px;
+}
+.chart-filters .range-spinner {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  margin-top: -6px;
+}
+@media (max-width: 700px) {
+  .chart-toolbar,
+  .chart-heading {
+    align-items: flex-start;
+  }
+}

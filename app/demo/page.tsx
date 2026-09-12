@@ -23,6 +23,7 @@ export default async function Demo() {
         initial={{
           now,
           lastSeenAt: device.last_seen_at,
+          weather: { latest: null, history: [], unavailable: false },
           readings,
           latest: readings.at(-1)!,
           events,

@@ -1,4 +1,5 @@
 'use server';
+import { parseCoordinates } from '@/lib/weather/coordinates';
 import { requireUser } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -33,6 +34,15 @@ export async function manageSettings(_: ActionResult, form: FormData): Promise<A
   if (membership?.role !== 'owner') return { error: 'Owner access required.' };
   let error;
   if (action === 'site') {
+    let coordinates;
+    try {
+      coordinates = parseCoordinates(
+        String(form.get('latitude') ?? ''),
+        String(form.get('longitude') ?? ''),
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Invalid coordinates' };
+    }
     const timezone = String(form.get('timezone') || 'Europe/London');
     try {
       new Intl.DateTimeFormat('en-GB', { timeZone: timezone }).format();
@@ -45,6 +55,7 @@ export async function manageSettings(_: ActionResult, form: FormData): Promise<A
       .update({
         name,
         timezone,
+        ...coordinates,
         continuous_ventilation: form.get('continuous_ventilation') === 'on',
       })
       .eq('id', siteId));

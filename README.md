@@ -165,3 +165,30 @@ Digital Nose was created by Piotr Wolanski.
 
 Licensed under the Apache License 2.0.
 See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
+
+## Weather context
+
+Weather data by [Open-Meteo](https://open-meteo.com/) adds external, model-based atmospheric context. It is separate from ENS160 hardware measurements and does not establish the cause of an odour. The Raspberry Pi, its SQLite data and `/api/ingest` are unchanged; the Pi never calls Open-Meteo.
+
+- **Provider/tier:** Open-Meteo free/open-access API (`https://api.open-meteo.com`), for the current non-commercial V1. No API key.
+- **Model:** `best_match`. This is the requested model selection strategy, not a claim that a particular UK model supplied a row. Returned grid location/elevation and any model identifier are preserved in metadata.
+- **Refresh:** Vercel Cron calls `GET /api/weather/refresh` every 15 minutes. This frequency requires **Vercel Pro**; Hobby only supports daily cron. Do not also schedule the route in Supabase Cron.
+- **Location:** site latitude/longitude, manually configured by its owner in Settings. Both must be present (latitude −90…90, longitude −180…180). Clearing both disables acquisition. Coordinates are sent to Open-Meteo; there is no runtime postcode lookup.
+- **Storage:** separate `public.weather_observations` table. Timestamp comes from Open-Meteo's `current.time`, requested in UTC, and is stored as `timestamptz`. Repeated timestamps are upserted on `(site_id, observed_at_utc, source)`.
+- **Variables:** temperature at 2m (°C), relative humidity at 2m (%), surface pressure (hPa), precipitation (mm), wind speed/gusts at 10m (km/h), wind direction (raw degrees) and WMO weather code. Only `current` fields are fetched; no multi-day forecasts.
+- **Wind:** direction is **from** the bearing, e.g. 225° means from SW. It does not mean towards SW.
+- **Freshness:** fresh at ≤30 minutes; older rows remain visible with a stale label. Missing fields show `—`, never invented zeroes. The chart inspector selects the nearest stored weather row within ±15 minutes; it never interpolates. Sensor gaps and context overlays are preserved.
+
+Site members can read weather under the existing membership RLS pattern. Browser roles cannot insert, update or delete weather. The cron authenticates `Authorization: Bearer <CRON_SECRET>` before creating the server-only Supabase client. Missing/wrong credentials return 401. Weather fetches have a 10-second timeout, four bounded workers, no automatic retries and at most one provider call per distinct configured site per invocation. An individual provider/write failure is logged without raw payloads/secrets, other sites continue, and the JSON summary reports `ok`, `sites`, `upserted`, `failed`, and `skipped`. Weather database query failures do not reject the sensor dashboard loader.
+
+Dashboard visitors only read Supabase: 100 residents generate **zero extra Open-Meteo calls**. A regular schedule uses 96 calls/day/site, approximately 2,880 calls per 30-day month/site (28,800 for ten sites). Published free limits checked for V1: 600/minute, 5,000/hour, 10,000/day, 300,000/month. Manual invocations and retries also consume this quota; avoid duplicate schedules and review capacity before adding many sites. The free service has no uptime guarantee. [Provider pricing/limits](https://open-meteo.com/en/pricing). **Review provider licensing before commercial deployment.**
+
+### Weather deployment
+
+1. Apply `supabase/migrations/202609120005_weather.sql` before deploying the updated Settings page. It adds coordinate constraints, the weather table/index and RLS. No existing telemetry is migrated.
+2. Generate a high-entropy `CRON_SECRET` (e.g. `openssl rand -hex 32`) and configure it in Vercel's **Production** environment. Keep it server-only. `.env.example` documents the variable; do not commit its value. Use a separate local `.env` value if testing locally.
+3. Confirm Vercel Pro supports the requested schedule, then deploy `vercel.json`. Vercel supplies the bearer header from `CRON_SECRET`. Cron runs on production deployments, not the local Next.js server.
+4. Configure weather coordinates privately in Settings. Never commit installation addresses or precise coordinates.
+5. Invoke the protected route once using the bearer header, check its compact summary, then verify a row and the dashboard attribution. Check Vercel's Cron logs for the next scheduled invocation. Do not expose or paste the secret in logs, screenshots or URLs.
+
+If the migration, coordinates, cron secret or supported scheduler plan is missing, weather acquisition is not operational yet. The dashboard displays missing/unavailable weather while hardware telemetry continues independently. There is no weather backfill in V1: historical context accumulates from scheduled observations.

@@ -59,6 +59,34 @@ export default async function Settings({
                 Timezone
                 <input name="timezone" defaultValue={site.timezone} required />
               </label>
+              <p className="muted">
+                Weather location · Optional. Add both coordinates to enable external weather context
+                from Open-Meteo. These coordinates are sent to the provider every 15 minutes.
+              </p>
+              <label>
+                Latitude
+                <input
+                  name="latitude"
+                  type="number"
+                  step="any"
+                  min="-90"
+                  max="90"
+                  defaultValue={site.latitude ?? ''}
+                  placeholder="−90 to 90"
+                />
+              </label>
+              <label>
+                Longitude
+                <input
+                  name="longitude"
+                  type="number"
+                  step="any"
+                  min="-180"
+                  max="180"
+                  defaultValue={site.longitude ?? ''}
+                  placeholder="−180 to 180"
+                />
+              </label>
               <label className="row">
                 <input
                   style={{ width: 'auto' }}
