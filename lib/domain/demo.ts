@@ -1,0 +1,10 @@
+import type {Reading,Site,Device,SmellReport,StateEvent} from './types';
+export function demoData(now:number){
+ const site:Site={id:'demo',name:'Home · Living room',timezone:'Europe/London',continuous_ventilation:true};
+ const device:Device={id:'demo-device',site_id:'demo',name:'Living room',device_identifier:'diginose-demo',last_seen_at:new Date(now).toISOString()};
+ const end=Math.floor(now/60000)*60000-60000;
+ const readings:Reading[]=Array.from({length:1440},(_,i)=>{const peak=230*Math.exp(-Math.pow((i-1020)/55,2))+110*Math.exp(-Math.pow((i-530)/80,2));const tvoc=Math.round(105+24*Math.sin(i/65)+12*Math.sin(i/7)+peak);const eco2=Math.round(570+tvoc*.45+30*Math.sin(i/43));return {id:`demo-${i}`,device_id:device.id,minute_start_utc:new Date(end-(1439-i)*60000).toISOString(),tvoc_mean:tvoc,tvoc_min:tvoc-12,tvoc_max:tvoc+17,eco2_mean:eco2,eco2_min:eco2-20,eco2_max:eco2+24,aqi_max:tvoc>250?3:2,sample_count:12};});
+ const reports:SmellReport[]=[{id:'r1',site_id:'demo',user_id:'demo-user',reported_at:new Date(end-420*60000).toISOString(),intensity:4,smell_type:'Restaurant',note:'Noticeable near the open window.'},{id:'r2',site_id:'demo',user_id:'demo-user',reported_at:new Date(end-900*60000).toISOString(),intensity:2,smell_type:'Cooking',note:null}];
+ const events:StateEvent[]=[{id:'s1',site_id:'demo',user_id:'demo-user',event_type:'window_open',value:false,recorded_at:new Date(end).toISOString()},{id:'s2',site_id:'demo',user_id:'demo-user',event_type:'user_in_room',value:true,recorded_at:new Date(end).toISOString()}];
+ return {site,device,readings,reports,events};
+}

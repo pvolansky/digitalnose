@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {parseRange,splitReadingGaps} from '../lib/domain/readings';import {demoData} from '../lib/domain/demo';
+test('history preserves missing-minute gaps and does not smooth values',()=>{const rows=demoData(Date.now()).readings.slice(0,4);const selected=[rows[0],rows[1],rows[3]];const groups=splitReadingGaps(selected);assert.equal(groups.length,2);assert.deepEqual(groups.flat(),selected);assert.equal(parseRange('invalid'),'24H');});
