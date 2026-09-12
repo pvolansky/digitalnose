@@ -15,26 +15,38 @@ export function reportMarkers(reports: SmellReport[], start: number, end: number
   return groups;
 }
 
-// One actual observation per display bucket; never create or carry forward weather.
+// Reserve a readable label footprint, including at the chart edges.
+export const WIND_LABEL_WIDTH = 100;
+export const WIND_LABEL_GAP = 12;
+export function weatherMarkerPosition(at: number, start: number, end: number, width: number) {
+  const half = Math.min(WIND_LABEL_WIDTH / 2, width / 2);
+  return Math.max(half, Math.min(width - half, ((at - start) / (end - start)) * width));
+}
+
+// Keep actual timestamps and favour the newest observation in crowded regions.
+// This only reduces labels; the inspector still receives every observation.
 export function weatherMarkers(
   weather: WeatherObservation[],
   start: number,
   end: number,
   width: number,
 ) {
-  const count = Math.max(1, Math.floor(width / 90));
-  const buckets = new Map<number, WeatherObservation>();
-  for (const row of weather) {
-    const at = Date.parse(row.observed_at_utc);
-    if (!Number.isFinite(at) || at < start || at > end) continue;
-    const bucket = Math.min(count - 1, Math.floor(((at - start) / (end - start)) * count));
-    const previous = buckets.get(bucket);
-    const centre = start + ((bucket + 0.5) / count) * (end - start);
-    if (
-      !previous ||
-      Math.abs(at - centre) < Math.abs(Date.parse(previous.observed_at_utc) - centre)
-    )
-      buckets.set(bucket, row);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(end - start) || end <= start)
+    return [];
+  const candidates = weather
+    .filter((row) => {
+      const at = Date.parse(row.observed_at_utc);
+      return Number.isFinite(at) && at >= start && at <= end;
+    })
+    .sort((a, b) => Date.parse(b.observed_at_utc) - Date.parse(a.observed_at_utc));
+  const selected: WeatherObservation[] = [];
+  let previousPosition = Infinity;
+  for (const row of candidates) {
+    const position = weatherMarkerPosition(Date.parse(row.observed_at_utc), start, end, width);
+    if (previousPosition - position >= WIND_LABEL_WIDTH + WIND_LABEL_GAP) {
+      selected.push(row);
+      previousPosition = position;
+    }
   }
-  return [...buckets.values()].sort((a, b) => a.observed_at_utc.localeCompare(b.observed_at_utc));
+  return selected.reverse();
 }

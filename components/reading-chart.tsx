@@ -4,7 +4,12 @@ import { LuRadio, LuWind, LuUserRound, LuMessageCircle, LuTrendingUp } from 'rea
 import type { Reading, StateEvent, SmellReport } from '@/lib/domain/types';
 import { MetricBadge, MetricInfo } from './metric-info';
 import { WeatherAtMoment } from './weather-card';
-import { reportMarkers, weatherMarkers } from '@/lib/domain/chart-context';
+import {
+  reportMarkers,
+  weatherMarkers,
+  weatherMarkerPosition,
+  WIND_LABEL_WIDTH,
+} from '@/lib/domain/chart-context';
 import { degreesToCompass, oppositeBearing } from '@/lib/weather/wind';
 import { weatherValue, windDescription } from '@/lib/weather/context';
 import { nearestWeather } from '@/lib/weather/context';
@@ -514,7 +519,7 @@ export function ReadingChart({
           </text>
           {windMarkers.map((row) => {
             const time = Date.parse(row.observed_at_utc);
-            const position = Math.max(left + 36, Math.min(right - 36, x(time)));
+            const position = left + weatherMarkerPosition(time, start, end, right - left);
             const label = `${localTime(time)} · ${windDescription(row)} · Gusts ${weatherValue(row.wind_gust_kmh, 'km/h')} · ${weatherValue(row.temperature_c, '°C')} · Rain ${weatherValue(row.precipitation_mm, 'mm')}`;
             return (
               <g
@@ -542,9 +547,9 @@ export function ReadingChart({
               >
                 <title>{label}</title>
                 <rect
-                  x={position - 36}
+                  x={position - WIND_LABEL_WIDTH / 2}
                   y="337"
-                  width="72"
+                  width={WIND_LABEL_WIDTH}
                   height="106"
                   rx="12"
                   className="wind-observation-surface"

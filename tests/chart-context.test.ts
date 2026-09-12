@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reportMarkers, weatherMarkers } from '../lib/domain/chart-context';
+import {
+  reportMarkers,
+  weatherMarkers,
+  weatherMarkerPosition,
+  WIND_LABEL_WIDTH,
+  WIND_LABEL_GAP,
+} from '../lib/domain/chart-context';
 import type { SmellReport } from '../lib/domain/types';
 import type { WeatherObservation } from '../lib/weather/types';
 const at = Date.parse('2026-09-12T12:00:00Z');
@@ -38,4 +44,46 @@ test('weather display keeps actual observations and leaves empty time buckets em
   assert.ok(markers.every((row) => weather.includes(row)));
   assert.equal(markers[1].observed_at_utc, weather[2].observed_at_utc);
   assert.deepEqual(weatherMarkers([], at, at + 3600000, 300), []);
+});
+
+test('wind labels never collide across bucket boundaries or clamped edges', () => {
+  for (const hours of [6, 24, 168]) {
+    const end = at + hours * 3600000;
+    const weather = Array.from(
+      { length: hours * 4 + 1 },
+      (_, i) =>
+        ({
+          observed_at_utc: new Date(at + i * 15 * 60000).toISOString(),
+        }) as WeatherObservation,
+    );
+    for (const width of [184, 320, 540, 980]) {
+      const markers = weatherMarkers([...weather].reverse(), at, end, width);
+      assert.equal(markers.at(-1), weather.at(-1));
+      for (let i = 0; i < markers.length; i++) {
+        assert.ok(weather.includes(markers[i]));
+        const position = weatherMarkerPosition(
+          Date.parse(markers[i].observed_at_utc),
+          at,
+          end,
+          width,
+        );
+        assert.ok(position >= WIND_LABEL_WIDTH / 2 && position <= width - WIND_LABEL_WIDTH / 2);
+        if (i) {
+          const previous = weatherMarkerPosition(
+            Date.parse(markers[i - 1].observed_at_utc),
+            at,
+            end,
+            width,
+          );
+          assert.ok(position - previous >= WIND_LABEL_WIDTH + WIND_LABEL_GAP);
+        }
+      }
+    }
+  }
+});
+test('weather markers reject invalid ranges and timestamps', () => {
+  const weather = [{ observed_at_utc: 'invalid' }] as WeatherObservation[];
+  assert.deepEqual(weatherMarkers(weather, at, at + 3600000, 300), []);
+  assert.deepEqual(weatherMarkers(weather, at, at, 300), []);
+  assert.deepEqual(weatherMarkers(weather, at, at + 3600000, 0), []);
 });

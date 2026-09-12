@@ -61,7 +61,10 @@ export function Shell({
         <footer>
           <span>Open-source air sensing</span>
           <span>
-            Created by <a href="https://piotrwolanski.com">Piotr Wolanski</a>
+            Created by{' '}
+            <a href="https://piotrwolanski.com" target="_blank" rel="noopener noreferrer">
+              Piotr Wolanski
+            </a>
           </span>
         </footer>
       </main>
