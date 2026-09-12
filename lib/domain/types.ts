@@ -26,6 +26,7 @@ export type Reading = {
   created_at?: string;
 };
 export type SmellReport = {
+  reporter_display_name?: string | null;
   id: string;
   site_id: string;
   user_id: string;

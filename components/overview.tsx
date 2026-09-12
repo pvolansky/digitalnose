@@ -56,6 +56,11 @@ export function Overview({
         reading={data.latest}
         initialNow={data.now}
         demo={demo}
+        syncStatus={
+          !demo ? (
+            <Realtime siteId={site.id} deviceId={device?.id} onUpdate={live.refresh} />
+          ) : undefined
+        }
       />
       <WeatherCard
         observation={data.weather.latest}
@@ -117,7 +122,6 @@ export function Overview({
         }}
       />
       <RecentReports reports={data.recentReports} timezone={site.timezone} />
-      {!demo && <Realtime siteId={site.id} deviceId={device?.id} onUpdate={live.refresh} />}
     </>
   );
 }

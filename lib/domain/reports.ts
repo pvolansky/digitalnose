@@ -23,5 +23,20 @@ export async function loadReports(db: SupabaseClient, siteId: string, limit = 5,
   if (before) query = query.lt('reported_at', before);
   const { data, error } = await query;
   if (error) throw new Error('Unable to load smell reports.');
-  return data as SmellReport[];
+  const reports = data as SmellReport[];
+  if (!reports.length) return reports;
+  const { data: names, error: namesError } = await db.rpc('report_display_names', {
+    report_ids: reports.map((report) => report.id),
+  });
+  if (namesError) throw new Error('Unable to load report display names.');
+  const byReport = new Map<string, string | null>(
+    (names || []).map((row: { report_id: string; display_name: string | null }) => [
+      row.report_id,
+      row.display_name,
+    ]),
+  );
+  return reports.map((report) => ({
+    ...report,
+    reporter_display_name: byReport.get(report.id) ?? null,
+  }));
 }

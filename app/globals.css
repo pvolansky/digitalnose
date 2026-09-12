@@ -1349,3 +1349,129 @@ footer a {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+
+.reading-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.reading-status-row .health-heading,
+.reading-status-row .sync-status {
+  margin: 0;
+}
+.reading-status-row .health-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.health-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.health-dot-live::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  animation: live-signal 2.8s ease-out infinite;
+}
+@keyframes live-signal {
+  0% {
+    transform: scale(0.65);
+    opacity: 0.5;
+  }
+  65%,
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .health-dot-live::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.recent-observations h2 {
+  margin: 0 0 8px;
+}
+.observation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.observation-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 0;
+}
+.observation-item + .observation-item {
+  border-top: 1px solid var(--line);
+}
+.observation-item:last-child {
+  padding-bottom: 0;
+}
+.observation-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.observation-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+.observation-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.observation-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.observation-intensity {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.observation-score {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.observation-score > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.observation-levels {
+  display: flex;
+  gap: 3px;
+}
+.observation-levels > span {
+  width: 8px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.observation-levels > .is-filled {
+  background: var(--accent);
+  opacity: 0.75;
+}

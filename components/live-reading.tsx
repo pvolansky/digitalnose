@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { MetricBadge, MetricInfo } from './metric-info';
 import { getDeviceHealth, healthTimeAgo } from '@/lib/domain/device-health';
 import type { Reading } from '@/lib/domain/types';
@@ -8,11 +8,13 @@ export function LiveReading({
   lastSeenAt,
   initialNow,
   demo = false,
+  syncStatus,
 }: {
   reading: Reading | null;
   lastSeenAt: string | null;
   initialNow: number;
   demo?: boolean;
+  syncStatus?: ReactNode;
 }) {
   const [now, setNow] = useState(initialNow);
   useEffect(() => {
@@ -27,9 +29,16 @@ export function LiveReading({
   });
   return (
     <section className="panel">
-      <p className={`eyebrow health-heading health-${health.state}`}>
-        ● {demo ? 'Demo readings' : health.headline}
-      </p>
+      <div className="reading-status-row">
+        <p className={`eyebrow health-heading health-${health.state}`}>
+          <span
+            className={`health-dot${health.state === 'live' && !demo ? ' health-dot-live' : ''}`}
+            aria-hidden="true"
+          />
+          {demo ? 'Demo readings' : health.headline}
+        </p>
+        {syncStatus}
+      </div>
       <dl className="health-summary">
         <div>
           <dt>Device</dt>
