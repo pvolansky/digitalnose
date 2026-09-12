@@ -6,6 +6,7 @@ import { loadReports } from './reports';
 import type { Reading, StateEvent, SmellReport } from './types';
 export type OverviewData = {
   now: number;
+  lastSeenAt: string | null;
   readings: Reading[];
   latest: Reading | null;
   events: StateEvent[];
@@ -21,12 +22,29 @@ export async function loadOverview(
   range: Range,
   now: number,
 ): Promise<OverviewData> {
-  const [readings, latest, timeline, currentEvents, recentReports] = await Promise.all([
+  const [readings, latest, timeline, currentEvents, recentReports, heartbeat] = await Promise.all([
     deviceId ? loadReadings(db, deviceId, range, now) : [],
     deviceId ? loadLatestReading(db, deviceId) : null,
     loadTimeline(db, siteId, userId, now - ranges[range] * 3600000, now),
     loadState(db, siteId, userId),
     loadReports(db, siteId),
+    deviceId
+      ? db
+          .from('devices')
+          .select('last_seen_at')
+          .eq('site_id', siteId)
+          .eq('id', deviceId)
+          .maybeSingle()
+      : { data: null, error: null },
   ]);
-  return { now, readings, latest, ...timeline, currentEvents, recentReports };
+  if (heartbeat.error) throw new Error('Unable to load device heartbeat.');
+  return {
+    now,
+    lastSeenAt: heartbeat.data?.last_seen_at ?? null,
+    readings,
+    latest,
+    ...timeline,
+    currentEvents,
+    recentReports,
+  };
 }

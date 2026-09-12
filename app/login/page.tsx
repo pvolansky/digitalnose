@@ -5,9 +5,13 @@ import { AuthForm } from '@/components/auth-form';
 export default async function Login({
   searchParams,
 }: {
-  searchParams: Promise<{ confirmation?: string }>;
+  searchParams: Promise<{ confirmation?: string; session?: string }>;
 }) {
-  const notice = confirmationNotice((await searchParams).confirmation);
+  const params = await searchParams;
+  const notice =
+    params.session === 'expired'
+      ? 'Your session has ended. Sign in again to view your readings.'
+      : confirmationNotice(params.confirmation);
   return (
     <main className="container auth-page">
       <Link href="/" className="brand">

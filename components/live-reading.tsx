@@ -1,13 +1,16 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { MetricBadge, MetricInfo } from './metric-info';
+import { getDeviceHealth, healthTimeAgo } from '@/lib/domain/device-health';
 import type { Reading } from '@/lib/domain/types';
 export function LiveReading({
   reading,
+  lastSeenAt,
   initialNow,
   demo = false,
 }: {
   reading: Reading | null;
+  lastSeenAt: string | null;
   initialNow: number;
   demo?: boolean;
 }) {
@@ -16,29 +19,31 @@ export function LiveReading({
     const timer = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(timer);
   }, []);
-  const age = reading
-    ? Math.max(0, Math.floor((now - Date.parse(reading.minute_start_utc)) / 60000))
-    : null;
-  const stale = age !== null && age > 3;
+  const clock = demo ? initialNow : Math.max(now, initialNow);
+  const health = getDeviceHealth({
+    lastSeenAt,
+    latestAggregateAt: reading?.minute_start_utc,
+    now: clock,
+  });
   return (
     <section className="panel">
-      <div className="row spread">
-        <p className="eyebrow" style={{ color: stale ? '#946516' : '#21664b' }}>
-          ●{' '}
-          {demo
-            ? 'Demo readings'
-            : reading
-              ? stale
-                ? 'Awaiting fresh data'
-                : 'Live'
-              : 'Not connected'}
-        </p>
-        <span className="muted" style={{ fontSize: 13 }}>
-          {age === null
-            ? 'No readings yet'
-            : `Latest minute · ${age < 1 ? 'just now' : age < 60 ? `${age} min ago` : age < 1440 ? `${Math.floor(age / 60)} hours ago` : `${Math.floor(age / 1440)} days ago`}`}
-        </span>
-      </div>
+      <p className={`eyebrow health-heading health-${health.state}`}>
+        ● {demo ? 'Demo readings' : health.headline}
+      </p>
+      <dl className="health-summary">
+        <div>
+          <dt>Device</dt>
+          <dd>{health.deviceLabel}</dd>
+        </div>
+        <div>
+          <dt>Sensor</dt>
+          <dd>{health.sensorLabel}</dd>
+        </div>
+        <div>
+          <dt>Last reading</dt>
+          <dd>{healthTimeAgo(reading?.minute_start_utc, clock)}</dd>
+        </div>
+      </dl>
       <div className="metrics">
         {[
           ['TVOC', reading?.tvoc_mean, 'ppb', 'tvoc_mean'],
@@ -63,14 +68,30 @@ export function LiveReading({
                 {unit}
               </span>
             </div>
-            <MetricBadge
-              metric={key as import('@/lib/domain/air-quality').Metric}
-              value={value == null ? null : Number(value)}
-              stale={stale && !demo}
-            />
+            {health.state !== 'live' && !demo ? (
+              <span className="quality-badge quality-neutral">
+                <i aria-hidden="true" />
+                {health.badgeLabel}
+              </span>
+            ) : (
+              <MetricBadge
+                metric={key as import('@/lib/domain/air-quality').Metric}
+                value={value == null ? null : Number(value)}
+              />
+            )}
           </div>
         ))}
       </div>
+      <p className="health-detail muted">
+        Device last seen {healthTimeAgo(lastSeenAt, clock).toLowerCase()} · Last valid sensor
+        reading {healthTimeAgo(reading?.minute_start_utc, clock).toLowerCase()}
+      </p>
+      {health.state === 'warming_up' && !demo && (
+        <p className="health-detail muted">
+          The device is syncing, but no recent valid sensor reading is available. The sensor may be
+          warming up or temporarily invalid.
+        </p>
+      )}
       <p className="muted" style={{ fontSize: 12, marginTop: 24 }}>
         ENS160 estimates · eCO₂ is an equivalent CO₂ estimate, not a direct CO₂ measurement.
       </p>

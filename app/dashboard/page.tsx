@@ -32,6 +32,7 @@ export default async function Dashboard({
       ? result.value
       : {
           now,
+          lastSeenAt: device?.last_seen_at ?? null,
           readings: [],
           latest: null,
           events: [],

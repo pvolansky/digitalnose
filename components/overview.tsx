@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useState } from 'react';
-import Link from 'next/link';
+import { RangeLink } from './range-link';
 import { LuRefreshCw } from 'react-icons/lu';
 import type { Site, Device } from '@/lib/domain/types';
 import { loadOverview, type OverviewData } from '@/lib/domain/overview';
@@ -33,7 +33,7 @@ export function Overview({
     () => loadOverview(browserClient(), site.id, userId, device?.id, range, Date.now()),
     [site.id, userId, device?.id, range],
   );
-  const live = useLiveData(initial, load, initialError);
+  const live = useLiveData(initial, load, initialError, !demo);
   const [demoData, setDemoData] = useState(initial);
   const data = demo ? demoData : live.data;
   return (
@@ -50,7 +50,12 @@ export function Overview({
           </button>
         </div>
       )}
-      <LiveReading reading={data.latest} initialNow={data.now} demo={demo} />
+      <LiveReading
+        lastSeenAt={data.lastSeenAt}
+        reading={data.latest}
+        initialNow={data.now}
+        demo={demo}
+      />
       <div className="row spread chart-toolbar">
         <span className="muted">
           {device ? 'Reading history' : 'No sensor connected'}
@@ -59,14 +64,12 @@ export function Overview({
         {!demo && (
           <div className="segmented" aria-label="Time range">
             {Object.keys(ranges).map((r) => (
-              <Link
-                className={`button ${range === r ? '' : 'secondary'}`}
+              <RangeLink
                 key={r}
+                active={range === r}
                 href={`/dashboard?site=${site.id}&device=${device?.id || ''}&range=${r}`}
-                aria-current={range === r ? 'page' : undefined}
-              >
-                {r === '6H' ? '6 hours' : r === '24H' ? '24 hours' : '7 days'}
-              </Link>
+                label={r === '6H' ? '6 hours' : r === '24H' ? '24 hours' : '7 days'}
+              />
             ))}
           </div>
         )}

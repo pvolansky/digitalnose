@@ -22,6 +22,7 @@ export default async function Demo() {
       <Overview
         initial={{
           now,
+          lastSeenAt: device.last_seen_at,
           readings,
           latest: readings.at(-1)!,
           events,

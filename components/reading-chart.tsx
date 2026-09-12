@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useId, useMemo } from 'react';
+import { useState, useEffect, useRef, useId, useMemo, useDeferredValue } from 'react';
 import { LuRadio, LuWind, LuUserRound, LuMessageCircle, LuTrendingUp } from 'react-icons/lu';
 import type { Reading, StateEvent, SmellReport } from '@/lib/domain/types';
 import { MetricBadge, MetricInfo } from './metric-info';
@@ -42,7 +42,38 @@ export function ReadingChart({
   reports?: SmellReport[];
   userId?: string;
 }) {
-  const [metric, setMetric] = useState<keyof typeof metrics>('tvoc_mean');
+  const [view, setView] = useState<keyof typeof metrics | 'combined'>('tvoc_mean');
+  const renderedView = useDeferredValue(view);
+  const combined = renderedView === 'combined';
+  const metric = combined ? 'tvoc_mean' : renderedView;
+  const switching = view !== renderedView;
+  const colours = { tvoc_mean: '#4265d6', eco2_mean: '#168078', aqi_max: '#b54880' };
+  const keys = Object.keys(metrics) as (keyof typeof metrics)[];
+  const peaks = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.keys(metrics).map((key) => [
+          key,
+          readings.reduce<Reading | undefined>(
+            (best, row) =>
+              !best || row[key as keyof typeof metrics] > best[key as keyof typeof metrics]
+                ? row
+                : best,
+            undefined,
+          ),
+        ]),
+      ) as Record<keyof typeof metrics, Reading | undefined>,
+    [readings],
+  );
+  const scales = useMemo(
+    () => ({
+      tvoc_mean: Math.ceil((Math.max(10, peaks.tvoc_mean?.tvoc_mean ?? 10) * 1.12) / 10) * 10,
+      eco2_mean: Math.ceil((Math.max(10, peaks.eco2_mean?.eco2_mean ?? 10) * 1.12) / 10) * 10,
+      aqi_max: 5,
+    }),
+    [peaks],
+  );
+  const groups = useMemo(() => splitReadingGaps(readings), [readings]);
   const [selectedAt, setSelectedAt] = useState<number | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(980);
@@ -62,12 +93,8 @@ export function ReadingChart({
     return () => observer.disconnect();
   }, []);
   const meta = metrics[metric];
-  const peak = readings.reduce<Reading | undefined>(
-    (best, r) => (!best || Number(r[metric]) > Number(best[metric]) ? r : best),
-    undefined,
-  );
-  const max = peak ? Number(peak[metric]) : 10;
-  const top = metric === 'aqi_max' ? 5 : Math.ceil((Math.max(10, max) * 1.12) / 10) * 10;
+  const peak = peaks[metric];
+  const top = combined ? 100 : scales[metric];
   const left = 42,
     right = width - 14,
     plotBottom = 218;
@@ -104,13 +131,23 @@ export function ReadingChart({
       : context.user_in_room
         ? 'You were in the room'
         : 'You were away';
-  const localTime = (n: number, short = false) =>
-    new Intl.DateTimeFormat('en-GB', {
-      timeZone: timezone,
-      ...(!short ? { month: 'short' as const, day: 'numeric' as const } : {}),
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(n);
+  const dateFormat = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: timezone,
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [timezone],
+  );
+  const timeFormat = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit' }),
+    [timezone],
+  );
+  const localTime = (n: number, short = false) => (short ? timeFormat : dateFormat).format(n);
   const displayValue = (v: number) => v.toLocaleString('en-GB', { maximumFractionDigits: 1 });
   const visibleReports = reports.filter(
     (r) => Date.parse(r.reported_at) >= start && Date.parse(r.reported_at) <= end,
@@ -128,46 +165,53 @@ export function ReadingChart({
   );
   const plotLines = useMemo(() => {
     const x = (time: number) => 42 + ((time - start) / (end - start)) * (width - 56);
-    const y = (value: number) => 218 - (value / top) * 176;
     const plotBottom = 218;
     return (
       <>
         {' '}
-        {splitReadingGaps(readings).map((group, i) => {
-          const points = group
-            .map(
-              (r) =>
-                `${x(Date.parse(r.minute_start_utc)).toFixed(2)},${y(Number(r[metric])).toFixed(2)}`,
-            )
-            .join(' ');
-          return group.length === 1 ? (
-            <circle
-              key={i}
-              cx={x(Date.parse(group[0].minute_start_utc))}
-              cy={y(Number(group[0][metric]))}
-              r="3"
-              fill="var(--chart-line)"
-            />
-          ) : (
-            <g key={i}>
-              <polygon
-                points={`${x(Date.parse(group[0].minute_start_utc))},${plotBottom} ${points} ${x(Date.parse(group.at(-1)!.minute_start_utc))},${plotBottom}`}
-                fill={`url(#${id}-area)`}
+        {(combined ? (['tvoc_mean', 'eco2_mean', 'aqi_max'] as const) : [metric]).map((series) =>
+          groups.map((group, i) => {
+            const y = (value: number) => 218 - (value / scales[series]) * 176;
+            const colour = combined
+              ? { tvoc_mean: '#4265d6', eco2_mean: '#168078', aqi_max: '#b54880' }[series]
+              : 'var(--chart-line)';
+            const points = group
+              .map(
+                (r) =>
+                  `${x(Date.parse(r.minute_start_utc)).toFixed(2)},${y(Number(r[series])).toFixed(2)}`,
+              )
+              .join(' ');
+            return group.length === 1 ? (
+              <circle
+                key={`${series}-${i}`}
+                cx={x(Date.parse(group[0].minute_start_utc))}
+                cy={y(Number(group[0][series]))}
+                r="3"
+                fill={colour}
               />
-              <polyline
-                points={points}
-                fill="none"
-                stroke="var(--chart-line)"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            </g>
-          );
-        })}
+            ) : (
+              <g key={`${series}-${i}`}>
+                {!combined && (
+                  <polygon
+                    points={`${x(Date.parse(group[0].minute_start_utc))},${plotBottom} ${points} ${x(Date.parse(group.at(-1)!.minute_start_utc))},${plotBottom}`}
+                    fill={`url(#${id}-area)`}
+                  />
+                )}
+                <polyline
+                  points={points}
+                  fill="none"
+                  stroke={colour}
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </g>
+            );
+          }),
+        )}
       </>
     );
-  }, [readings, metric, start, end, width, top, id]);
+  }, [groups, combined, metric, start, end, width, scales, id]);
   return (
     <section className="panel history-panel" aria-labelledby={`${id}-title`}>
       <div className="row spread chart-heading">
@@ -179,24 +223,41 @@ export function ReadingChart({
           {Object.entries(metrics).map(([key, value]) => (
             <button
               key={key}
-              className={metric === key ? '' : 'secondary'}
-              aria-pressed={metric === key}
-              onClick={() => setMetric(key as keyof typeof metrics)}
+              className={view === key ? '' : 'secondary'}
+              aria-pressed={view === key}
+              onClick={() => setView(key as keyof typeof metrics)}
             >
               {value.label}
             </button>
           ))}
+          <button
+            className={view === 'combined' ? '' : 'secondary'}
+            aria-pressed={view === 'combined'}
+            onClick={() => setView('combined')}
+          >
+            Consolidated
+          </button>
         </div>
       </div>
+      {switching && (
+        <p role="status" className="muted">
+          Updating chart…
+        </p>
+      )}
       <div className="row spread chart-description">
         <div>
           <h3>
-            {meta.name} <span className="muted">{meta.unit}</span>
-            <MetricInfo metric={metric} label={meta.label} />
+            {combined ? 'All measurements' : meta.name}{' '}
+            <span className="muted">{combined ? '% of each scale' : meta.unit}</span>
+            {!combined && <MetricInfo metric={metric} label={meta.label} />}
           </h3>
-          <p className="muted">{meta.description}</p>
+          <p className="muted">
+            {combined
+              ? 'Each line uses its own labelled scale. Compare timing and trends, not absolute heights. Inspect a moment for actual values.'
+              : meta.description}
+          </p>
         </div>
-        {peak && (
+        {peak && !combined && (
           <button
             className="peak-button secondary"
             onClick={() => inspectMoment(Date.parse(peak.minute_start_utc))}
@@ -207,10 +268,21 @@ export function ReadingChart({
         )}
       </div>
       <div className="chart-legend">
-        <span>
-          <i className="legend-line" />
-          Sensor reading
-        </span>
+        {combined ? (
+          keys.map((key) => (
+            <span key={key}>
+              <i className="legend-line" style={{ background: colours[key] }} />
+              {metrics[key].label} · 0–{scales[key]}{' '}
+              {key === 'aqi_max' ? 'index' : metrics[key].unit}
+              <MetricInfo metric={key} label={metrics[key].label} />
+            </span>
+          ))
+        ) : (
+          <span>
+            <i className="legend-line" />
+            Sensor reading
+          </span>
+        )}
         <span>
           <i className="legend-window" />
           Window open
@@ -229,7 +301,7 @@ export function ReadingChart({
           viewBox={`0 0 ${width} 304`}
           style={{ width: '100%', height: 304, display: 'block' }}
           role="img"
-          aria-label={`${meta.name} timeline with window, personal presence and smell reports. Use the time slider or event list to inspect.`}
+          aria-label={`${combined ? 'All measurements on separate normalised scales' : meta.name} timeline with window, personal presence and smell reports. Use the time slider or event list to inspect.`}
           onPointerMove={(e) => {
             if (e.pointerType === 'touch') return;
             const rect = e.currentTarget.getBoundingClientRect();
@@ -260,7 +332,7 @@ export function ReadingChart({
             );
           }}
         >
-          <title>{`${meta.name} · readings and recorded context`}</title>
+          <title>{`${combined ? 'All measurements' : meta.name} · readings and recorded context`}</title>
           <defs>
             <pattern id={`${id}-unknown`} width="6" height="9" patternUnits="userSpaceOnUse">
               <rect width="6" height="9" fill="var(--paper)" />
@@ -330,7 +402,7 @@ export function ReadingChart({
             strokeOpacity=".35"
             strokeDasharray="3 3"
           />
-          {reading && (
+          {reading && !combined && (
             <circle
               cx={x(Date.parse(reading.minute_start_utc))}
               cy={y(Number(reading[metric]))}
@@ -400,20 +472,24 @@ export function ReadingChart({
         step={1}
         value={Math.round((at - start) / 60000)}
         onChange={(e) => setSelectedAt(start + Number(e.target.value) * 60000)}
-        aria-valuetext={`${localTime(at)}. ${reading ? `${meta.label} ${displayValue(Number(reading[metric]))} ${meta.unit}` : 'No reading'}. ${windowText}. ${occupancyText}.`}
+        aria-valuetext={`${localTime(at)}. ${reading ? (combined ? keys : [metric]).map((key) => `${metrics[key].label} ${displayValue(Number(reading[key]))} ${metrics[key].unit}`).join(', ') : 'No reading'}. ${windowText}. ${occupancyText}.`}
       />
       <div ref={inspectorRef} className="chart-inspector" aria-label="Selected moment">
         <div className="inspector-reading">
           <span className="muted">
             {localTime(at)} · {timezone}
           </span>
-          <strong>
-            {reading ? displayValue(Number(reading[metric])) : '—'}{' '}
-            <small>
-              {meta.label} {meta.unit}
-            </small>
-          </strong>
-          <MetricBadge metric={metric} value={reading ? Number(reading[metric]) : null} />
+          {(combined ? keys : [metric]).map((key) => (
+            <div key={key}>
+              <strong style={combined ? { color: colours[key] } : undefined}>
+                {reading ? displayValue(Number(reading[key])) : '—'}{' '}
+                <small>
+                  {metrics[key].label} {metrics[key].unit}
+                </small>
+              </strong>
+              <MetricBadge metric={key} value={reading ? Number(reading[key]) : null} />
+            </div>
+          ))}
           {!reading && <span className="muted">No reading within this minute</span>}
         </div>
         <div className="inspector-context">
