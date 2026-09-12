@@ -39,25 +39,25 @@ Open `http://localhost:3000`. The public `/demo` route works without a connected
 
 The local `.env` is ignored by Git. Never overwrite an existing `DEVICE_KEY_PEPPER`: changing it invalidates every device key.
 
-| Variable                        | Purpose                                                                                      |
-| ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Your Supabase project URL                                                                    |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase **publishable** key (or legacy anon key); compatibility name retained from the plan |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase **secret** key (or legacy service-role key); server-only compatibility name         |
-| `DEVICE_KEY_PEPPER`             | At least 32 random characters; generate with `openssl rand -hex 32`                          |
-| `NEXT_PUBLIC_APP_URL`           | Canonical application origin, e.g. `http://localhost:3000` or your HTTPS deployment          |
+| Variable                        | Purpose                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Your Supabase project URL                                                            |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase **publishable** key (or legacy anon key); compatibility variable name       |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase **secret** key (or legacy service-role key); server-only compatibility name |
+| `DEVICE_KEY_PEPPER`             | At least 32 random characters; generate with `openssl rand -hex 32`                  |
+| `NEXT_PUBLIC_APP_URL`           | Canonical application origin, e.g. `http://localhost:3000` or your HTTPS deployment  |
 
 Only variables prefixed `NEXT_PUBLIC_` may enter browser code. The privileged Supabase client imports `server-only`. The ingestion endpoint uses the server secret; resident requests use the resident session and RLS.
 
 ## Supabase setup
 
-The supplied project already has migrations `202609120001`–`202609120004` installed and recorded in migration history. The steps below describe setup for another project and future migrations; do not rerun the initial SQL manually on the configured project.
+Apply the versioned migrations through the Supabase CLI. The CLI tracks previously applied migrations.
 
-The supplied API keys configure the app; **they cannot apply database migrations**. Use the Supabase CLI with your project management access and database password:
+API keys configure the app; **they cannot apply database migrations**. Use the Supabase CLI with your project management access and database password:
 
 ```sh
 npx supabase login
-npx supabase link --project-ref wmnkdkxjhrwnknytsgya
+npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push
 ```
 
@@ -188,7 +188,7 @@ Dashboard visitors only read Supabase: 100 residents generate **zero extra Open-
 1. Apply `supabase/migrations/202609120005_weather.sql` before deploying the updated Settings page. It adds coordinate constraints, the weather table/index and RLS. No existing telemetry is migrated.
 2. Generate a high-entropy `CRON_SECRET` (e.g. `openssl rand -hex 32`) and configure it in Vercel's **Production** environment. Keep it server-only. `.env.example` documents the variable; do not commit its value. Use a separate local `.env` value if testing locally.
 3. Confirm Vercel Pro supports the requested schedule, then deploy `vercel.json`. Vercel supplies the bearer header from `CRON_SECRET`. Cron runs on production deployments, not the local Next.js server.
-4. Configure weather coordinates privately in Settings. Never commit installation addresses or precise coordinates. Apply migration `202609120006_location_privacy.sql` to restrict access to private weather configuration.
+4. Configure weather coordinates in Settings. Coordinate access is limited to site owners and the weather backend.
 5. Invoke the protected route once using the bearer header, check its compact summary, then verify a row and the dashboard attribution. Check Vercel's Cron logs for the next scheduled invocation. Do not expose or paste the secret in logs, screenshots or URLs.
 
 If the migration, coordinates, cron secret or supported scheduler plan is missing, weather acquisition is not operational yet. The dashboard displays missing/unavailable weather while hardware telemetry continues independently. There is no weather backfill in V1: historical context accumulates from scheduled observations.
