@@ -1,0 +1,25 @@
+[Unit]
+Description=Digital Nose sync
+After=local-fs.target time-sync.target
+
+[Service]
+Type=simple
+User=digitalnose
+Group=digitalnose
+PrivateDevices=true
+WorkingDirectory=/opt/digitalnose/edge/raspberry-pi
+EnvironmentFile=/etc/digitalnose/edge.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/digitalnose/edge/raspberry-pi/.venv/bin/python sync.py
+Restart=always
+RestartSec=10
+StateDirectory=digitalnose
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/digitalnose
+
+[Install]
+WantedBy=multi-user.target
