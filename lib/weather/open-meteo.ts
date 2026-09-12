@@ -82,7 +82,7 @@ export function mapWeather(payload: unknown): WeatherObservation {
     model: 'best_match',
     metadata: {},
   };
-  for (const key of ['latitude', 'longitude', 'elevation', 'utc_offset_seconds']) {
+  for (const key of ['utc_offset_seconds']) {
     if (typeof root[key] === 'number' && Number.isFinite(root[key]))
       observation.metadata![key] = root[key];
   }

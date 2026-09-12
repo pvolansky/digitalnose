@@ -14,6 +14,12 @@ export default async function Settings({
         <CreateSite />
       </Shell>
     );
+  const { data: locations, error: locationError } =
+    role === 'owner'
+      ? await db.rpc('get_weather_location', { target_site: site.id })
+      : { data: [], error: null };
+  if (locationError) throw new Error('Unable to load private weather settings.');
+  const location = locations?.[0];
   const { data: profile, error: profileError } = await db
     .from('profiles')
     .select('display_name')
@@ -71,7 +77,7 @@ export default async function Settings({
                   step="any"
                   min="-90"
                   max="90"
-                  defaultValue={site.latitude ?? ''}
+                  defaultValue={location?.latitude ?? ''}
                   placeholder="−90 to 90"
                 />
               </label>
@@ -83,7 +89,7 @@ export default async function Settings({
                   step="any"
                   min="-180"
                   max="180"
-                  defaultValue={site.longitude ?? ''}
+                  defaultValue={location?.longitude ?? ''}
                   placeholder="−180 to 180"
                 />
               </label>

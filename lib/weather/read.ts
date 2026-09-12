@@ -14,7 +14,9 @@ export async function loadWeather(
   try {
     const latest = await db
       .from('weather_observations')
-      .select('*')
+      .select(
+        'observed_at_utc,temperature_c,relative_humidity_pct,surface_pressure_hpa,precipitation_mm,wind_speed_kmh,wind_direction_deg,wind_gust_kmh,weather_code,source,model',
+      )
       .eq('site_id', siteId)
       .eq('source', 'open-meteo')
       .order('observed_at_utc', { ascending: false })
@@ -25,7 +27,9 @@ export async function loadWeather(
     for (let offset = 0; ; offset += 1000) {
       const { data, error } = await db
         .from('weather_observations')
-        .select('*')
+        .select(
+          'observed_at_utc,temperature_c,relative_humidity_pct,surface_pressure_hpa,precipitation_mm,wind_speed_kmh,wind_direction_deg,wind_gust_kmh,weather_code,source,model',
+        )
         .eq('site_id', siteId)
         .eq('source', 'open-meteo')
         .gte('observed_at_utc', new Date(start - 15 * 60000).toISOString())

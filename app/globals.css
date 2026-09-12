@@ -1334,3 +1334,18 @@ footer a {
     align-items: flex-start;
   }
 }
+
+.wind-observation-surface {
+  fill: transparent;
+  stroke: transparent;
+}
+.wind-observation:hover .wind-observation-surface,
+.wind-observation:focus-visible .wind-observation-surface,
+.wind-observation[aria-pressed='true'] .wind-observation-surface {
+  fill: var(--paper);
+  stroke: var(--line);
+}
+.wind-observation text {
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}

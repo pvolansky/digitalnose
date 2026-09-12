@@ -84,7 +84,9 @@ test('mapper preserves zero, null, returned UTC timestamp and provider metadata'
   assert.equal(observation.observed_at_utc, '2026-09-12T12:00:00.000Z');
   assert.equal(observation.precipitation_mm, 0);
   assert.equal(observation.wind_direction_deg, 225);
-  assert.equal(observation.metadata?.elevation, 10);
+  assert.equal(observation.metadata?.latitude, undefined);
+  assert.equal(observation.metadata?.longitude, undefined);
+  assert.equal(observation.metadata?.elevation, undefined);
   const nullable = fixture();
   (nullable.current as Record<string, unknown>).wind_speed_10m = null;
   assert.equal(mapWeather(nullable).wind_speed_kmh, null);

@@ -313,8 +313,8 @@ export function ReadingChart({
       </div>
       <div ref={chartRef} className="chart-canvas">
         <svg
-          viewBox={`0 0 ${width} 402`}
-          style={{ width: '100%', height: 402, display: 'block' }}
+          viewBox={`0 0 ${width} 450`}
+          style={{ width: '100%', height: 450, display: 'block' }}
           role="group"
           aria-label={`${combined ? 'All measurements on separate normalised scales' : meta.name} timeline with window, personal presence and smell reports. Use the time slider or event list to inspect.`}
           onPointerMove={(e) => {
@@ -510,11 +510,11 @@ export function ReadingChart({
           ))}
           <line x1={left} x2={right} y1="307" y2="307" stroke="var(--line)" />
           <text x={left} y="326" fontSize="11" fill="var(--muted)">
-            Wind · km/h · direction from
+            Wind
           </text>
           {windMarkers.map((row) => {
             const time = Date.parse(row.observed_at_utc);
-            const position = Math.max(left + 30, Math.min(right - 30, x(time)));
+            const position = Math.max(left + 36, Math.min(right - 36, x(time)));
             const label = `${localTime(time)} · ${windDescription(row)} · Gusts ${weatherValue(row.wind_gust_kmh, 'km/h')} · ${weatherValue(row.temperature_c, '°C')} · Rain ${weatherValue(row.precipitation_mm, 'mm')}`;
             return (
               <g
@@ -522,7 +522,8 @@ export function ReadingChart({
                 role="button"
                 tabIndex={0}
                 aria-label={label}
-                className="chart-event-marker"
+                className="chart-event-marker wind-observation"
+                aria-pressed={at === time}
                 onPointerMove={(event) => {
                   event.stopPropagation();
                   setSelectedAt(time);
@@ -540,11 +541,18 @@ export function ReadingChart({
                 }}
               >
                 <title>{label}</title>
-                <rect x={position - 30} y="332" width="60" height="65" rx="8" fill="var(--paper)" />
+                <rect
+                  x={position - 36}
+                  y="337"
+                  width="72"
+                  height="106"
+                  rx="12"
+                  className="wind-observation-surface"
+                />
                 {row.wind_direction_deg !== null && (
                   <path
                     d="M0 8V-8M-5-3L0-8L5-3"
-                    transform={`translate(${position} 346) rotate(${oppositeBearing(row.wind_direction_deg)})`}
+                    transform={`translate(${position} 357) rotate(${oppositeBearing(row.wind_direction_deg)})`}
                     fill="none"
                     stroke="var(--chart-line)"
                     strokeWidth="1.8"
@@ -552,11 +560,32 @@ export function ReadingChart({
                     strokeLinejoin="round"
                   />
                 )}
-                <text x={position} y="373" textAnchor="middle" fill="var(--ink)" fontSize="11">
-                  {row.wind_direction_deg === null ? '—' : degreesToCompass(row.wind_direction_deg)}{' '}
-                  · {weatherValue(row.wind_speed_kmh, '').trim()}
+                <text
+                  x={position}
+                  y="387"
+                  textAnchor="middle"
+                  fill="var(--ink)"
+                  fontSize="12"
+                  fontWeight="500"
+                >
+                  {row.wind_direction_deg === null
+                    ? 'Direction —'
+                    : degreesToCompass(row.wind_direction_deg)}
                 </text>
-                <text x={position} y="389" textAnchor="middle" fill="var(--muted)" fontSize="9">
+                <text
+                  x={position}
+                  y="409"
+                  textAnchor="middle"
+                  fill="var(--ink)"
+                  fontSize="13"
+                  fontWeight="600"
+                >
+                  {weatherValue(row.wind_speed_kmh, '').trim()}{' '}
+                  <tspan fontSize="11" fontWeight="400" fill="var(--muted)">
+                    km/h
+                  </tspan>
+                </text>
+                <text x={position} y="429" textAnchor="middle" fill="var(--muted)" fontSize="11">
                   {localTime(time, true)}
                 </text>
               </g>
@@ -565,7 +594,7 @@ export function ReadingChart({
           {!windMarkers.length && (
             <text
               x={(left + right) / 2}
-              y="368"
+              y="390"
               textAnchor="middle"
               fontSize="11"
               fill="var(--muted)"
@@ -585,11 +614,6 @@ export function ReadingChart({
             </text>
           )}
         </svg>
-      </div>
-      <div className="track-key muted">
-        <span>
-          <i /> Grey = off · dashed = unrecorded
-        </span>
       </div>
       <label className="scrubber-label" htmlFor={`${id}-time`}>
         Inspect a moment <span className="muted">Drag, tap the chart, or use arrow keys</span>

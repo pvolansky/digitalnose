@@ -3,7 +3,10 @@ import { requireUser } from '@/lib/auth/session';
 import type { Site, Device } from './types';
 export async function siteContext(requested?: string) {
   const { db, user } = await requireUser();
-  const { data, error } = await db.from('sites').select('*').order('created_at');
+  const { data, error } = await db
+    .from('sites')
+    .select('id,name,timezone,continuous_ventilation,created_at')
+    .order('created_at');
   if (error)
     throw new Error('Unable to load sites. Check that the Supabase migrations have been applied.');
   const sites = (data || []) as Site[];

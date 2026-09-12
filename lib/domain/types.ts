@@ -3,8 +3,6 @@ export type Site = {
   name: string;
   timezone: string;
   continuous_ventilation: boolean;
-  latitude?: number | null;
-  longitude?: number | null;
 };
 export type Device = {
   id: string;

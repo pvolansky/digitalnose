@@ -49,8 +49,34 @@ test('weather migration enforces membership, server-only writes, coordinates and
       (await db.query<{ latitude: number }>('select latitude from public.sites')).rows[0].latitude,
       51.5,
     );
+    await db.exec('reset role');
+    await db.exec(readFileSync('supabase/migrations/202609120006_location_privacy.sql', 'utf8'));
+    for (const user of [owner, resident]) {
+      await login(user);
+      assert.equal((await db.query('select id,name from public.sites')).rows.length, 1);
+      await assert.rejects(db.query('select latitude,longitude from public.sites'));
+      await assert.rejects(db.query('select metadata from public.weather_observations'));
+      assert.equal(
+        (await db.query('select wind_speed_kmh from public.weather_observations')).rows.length,
+        1,
+      );
+    }
+    await assert.rejects(db.query('select * from public.get_weather_location($1)', [site]));
+    await login(owner);
+    assert.equal(
+      (
+        await db.query<{ latitude: number }>('select * from public.get_weather_location($1)', [
+          site,
+        ])
+      ).rows[0].latitude,
+      51.5,
+    );
     await login(stranger);
-    assert.equal((await db.query('select * from public.weather_observations')).rows.length, 0);
+    assert.equal(
+      (await db.query('select wind_speed_kmh from public.weather_observations')).rows.length,
+      0,
+    );
+    await assert.rejects(db.query('select * from public.get_weather_location($1)', [site]));
     await db.exec('reset role; set role anon');
     await assert.rejects(db.query('select * from public.weather_observations'));
   } finally {

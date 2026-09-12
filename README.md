@@ -171,7 +171,7 @@ See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
 Weather data by [Open-Meteo](https://open-meteo.com/) adds external, model-based atmospheric context. It is separate from ENS160 hardware measurements and does not establish the cause of an odour. The Raspberry Pi, its SQLite data and `/api/ingest` are unchanged; the Pi never calls Open-Meteo.
 
 - **Provider/tier:** Open-Meteo free/open-access API (`https://api.open-meteo.com`), for the current non-commercial V1. No API key.
-- **Model:** `best_match`. This is the requested model selection strategy, not a claim that a particular UK model supplied a row. Returned grid location/elevation and any model identifier are preserved in metadata.
+- **Model:** `best_match`. This is the requested model selection strategy, not a claim that a particular UK model supplied a row. Only non-location provider metadata is retained.
 - **Refresh:** Vercel Cron calls `GET /api/weather/refresh` every 15 minutes. This frequency requires **Vercel Pro**; Hobby only supports daily cron. Do not also schedule the route in Supabase Cron.
 - **Location:** site latitude/longitude, manually configured by its owner in Settings. Both must be present (latitude −90…90, longitude −180…180). Clearing both disables acquisition. Coordinates are sent to Open-Meteo; there is no runtime postcode lookup.
 - **Storage:** separate `public.weather_observations` table. Timestamp comes from Open-Meteo's `current.time`, requested in UTC, and is stored as `timestamptz`. Repeated timestamps are upserted on `(site_id, observed_at_utc, source)`.
@@ -188,7 +188,7 @@ Dashboard visitors only read Supabase: 100 residents generate **zero extra Open-
 1. Apply `supabase/migrations/202609120005_weather.sql` before deploying the updated Settings page. It adds coordinate constraints, the weather table/index and RLS. No existing telemetry is migrated.
 2. Generate a high-entropy `CRON_SECRET` (e.g. `openssl rand -hex 32`) and configure it in Vercel's **Production** environment. Keep it server-only. `.env.example` documents the variable; do not commit its value. Use a separate local `.env` value if testing locally.
 3. Confirm Vercel Pro supports the requested schedule, then deploy `vercel.json`. Vercel supplies the bearer header from `CRON_SECRET`. Cron runs on production deployments, not the local Next.js server.
-4. Configure weather coordinates privately in Settings. Never commit installation addresses or precise coordinates.
+4. Configure weather coordinates privately in Settings. Never commit installation addresses or precise coordinates. Apply migration `202609120006_location_privacy.sql` to restrict access to private weather configuration.
 5. Invoke the protected route once using the bearer header, check its compact summary, then verify a row and the dashboard attribution. Check Vercel's Cron logs for the next scheduled invocation. Do not expose or paste the secret in logs, screenshots or URLs.
 
 If the migration, coordinates, cron secret or supported scheduler plan is missing, weather acquisition is not operational yet. The dashboard displays missing/unavailable weather while hardware telemetry continues independently. There is no weather backfill in V1: historical context accumulates from scheduled observations.

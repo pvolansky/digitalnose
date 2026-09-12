@@ -1,7 +1,6 @@
 'use client';
 import { useCallback, useState } from 'react';
 import { WeatherCard } from './weather-card';
-import { validCoordinates } from '@/lib/weather/coordinates';
 import { RangeLink } from './range-link';
 import { LuRefreshCw } from 'react-icons/lu';
 import type { Site, Device } from '@/lib/domain/types';
@@ -62,7 +61,7 @@ export function Overview({
         observation={data.weather.latest}
         now={data.now}
         timezone={site.timezone}
-        configured={validCoordinates(site.latitude, site.longitude)}
+        configured={true}
         unavailable={data.weather.unavailable}
         demo={demo}
       />
