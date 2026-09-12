@@ -1,0 +1,20 @@
+project_id = "digitalnose"
+
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/confirm"]
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true

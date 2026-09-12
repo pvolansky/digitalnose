@@ -1,54 +1,157 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {PGlite} from '@electric-sql/pglite';
-test('Postgres RLS isolates sites and prevents resident privilege escalation',async()=>{
- const db=new PGlite();
- await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
+import { readFileSync } from 'node:fs';
+import { PGlite } from '@electric-sql/pglite';
+test('Postgres RLS isolates sites and prevents resident privilege escalation', async () => {
+  const db = new PGlite();
+  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
  create schema auth; create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb);
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  grant usage on schema public,auth to authenticated,anon,service_role;
  grant execute on function auth.uid() to authenticated,anon,service_role;`);
- await db.exec(readFileSync('supabase/migrations/202609120001_initial.sql','utf8'));
- await db.exec(readFileSync('supabase/migrations/202609120002_ingest.sql','utf8'));
- const owner='00000000-0000-4000-8000-000000000001', resident='00000000-0000-4000-8000-000000000002', stranger='00000000-0000-4000-8000-000000000003';
- await db.query(`insert into auth.users(id,email) values ($1,'owner@test.invalid'),($2,'resident@test.invalid'),($3,'stranger@test.invalid')`,[owner,resident,stranger]);
- async function login(id:string){await db.exec(`reset role; set role authenticated; set request.jwt.claim.sub='${id}'`)}
- await login(owner);
- const site=(await db.query<{id:string}>("select public.create_site('Home') as id")).rows[0].id;
- await db.query('select public.add_resident($1,$2)',[site,'resident@test.invalid']);
- const device=(await db.query<{id:string}>('insert into public.devices(site_id,name,device_identifier) values($1,$2,$3) returning id',[site,'Living room','test-001'])).rows[0].id;
- await login(resident);
- assert.equal((await db.query('select * from public.sites')).rows.length,1);
- await db.query('insert into public.smell_reports(site_id,user_id,intensity) values($1,$2,4)',[site,resident]);
- await assert.rejects(db.query('insert into public.smell_reports(site_id,user_id,intensity) values($1,$2,4)',[site,owner]));
- await assert.rejects(db.query('insert into public.devices(site_id,name,device_identifier) values($1,$2,$3)',[site,'Bad','bad']));
- await assert.rejects(db.query("update public.site_members set role='owner' where user_id=$1",[resident]));
- await assert.rejects(db.query('select public.rotate_device_key($1,$2)',[device,'a'.repeat(64)]));
- await assert.rejects(db.query('select * from public.device_api_keys'));
- await assert.rejects(db.query('select public.add_resident($1,$2)',[site,'stranger@test.invalid']));
- await login(stranger);
- for(const table of ['sites','devices','site_members','smell_reports','minute_aggregates','site_state_events']) assert.equal((await db.query(`select * from public.${table}`)).rows.length,0,table);
- await assert.rejects(db.query('insert into public.site_state_events(site_id,user_id,event_type,value) values($1,$2,$3,true)',[site,stranger,'window_open']));
- await login(owner);
- await db.query('select public.rotate_device_key($1,$2)',[device,'a'.repeat(64)]);
- const payload={device_identifier:'test-001',minute_start_utc:'2026-01-01T00:00:00Z',tvoc_mean:180,tvoc_min:160,tvoc_max:200,eco2_mean:650,eco2_min:600,eco2_max:700,aqi_max:2,sample_count:12};
- await assert.rejects(db.query('select public.ingest_minute($1,$2)',[payload,'a'.repeat(64)]));
- await db.exec('reset role;set role service_role');
- assert.equal((await db.query<{ok:boolean}>('select public.ingest_minute($1,$2) as ok',[payload,'b'.repeat(64)])).rows[0].ok,false);
- for(let i=0;i<2;i++) assert.equal((await db.query<{ok:boolean}>('select public.ingest_minute($1,$2) as ok',[payload,'a'.repeat(64)])).rows[0].ok,true);
- assert.equal((await db.query('select * from public.minute_aggregates')).rows.length,1);
- assert.ok((await db.query<{last_seen_at:string}>('select last_seen_at from public.devices')).rows[0].last_seen_at);
- await login(stranger);assert.equal((await db.query('select * from public.minute_aggregates')).rows.length,0);
- await login(resident);assert.equal((await db.query('select * from public.minute_aggregates')).rows.length,1);
- await login(owner);await db.query('select public.revoke_device_key($1)',[device]);
- await db.exec('reset role;set role service_role');
- assert.equal((await db.query<{ok:boolean}>('select public.ingest_minute($1,$2) as ok',[payload,'a'.repeat(64)])).rows[0].ok,false);
- await login(owner);
- await db.query('select public.remove_resident($1,$2)',[site,owner]);
- assert.equal((await db.query("select * from public.site_members where role='owner'")).rows.length,1);
- await db.query('select public.remove_resident($1,$2)',[site,resident]);
- await login(resident);
- assert.equal((await db.query('select * from public.smell_reports')).rows.length,0);
- await db.close();
+  await db.exec(readFileSync('supabase/migrations/202609120001_initial.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/202609120002_ingest.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/202609120003_realtime.sql', 'utf8'));
+  assert.equal(
+    (await db.query("select * from pg_publication_tables where pubname='supabase_realtime'")).rows
+      .length,
+    3,
+  );
+  await db.exec(readFileSync('supabase/migrations/202609120004_member_directory.sql', 'utf8'));
+  const owner = '00000000-0000-4000-8000-000000000001',
+    resident = '00000000-0000-4000-8000-000000000002',
+    stranger = '00000000-0000-4000-8000-000000000003';
+  await db.query(
+    `insert into auth.users(id,email) values ($1,'owner@test.invalid'),($2,'resident@test.invalid'),($3,'stranger@test.invalid')`,
+    [owner, resident, stranger],
+  );
+  async function login(id: string) {
+    await db.exec(`reset role; set role authenticated; set request.jwt.claim.sub='${id}'`);
+  }
+  await login(owner);
+  const site = (await db.query<{ id: string }>("select public.create_site('Home') as id")).rows[0]
+    .id;
+  await db.query('select public.add_resident($1,$2)', [site, 'resident@test.invalid']);
+  assert.equal(
+    (await db.query('select * from public.list_site_residents($1)', [site])).rows.length,
+    2,
+  );
+  const device = (
+    await db.query<{ id: string }>(
+      'insert into public.devices(site_id,name,device_identifier) values($1,$2,$3) returning id',
+      [site, 'Living room', 'test-001'],
+    )
+  ).rows[0].id;
+  await login(resident);
+  await assert.rejects(db.query('select * from public.list_site_residents($1)', [site]));
+  assert.equal((await db.query('select * from public.sites')).rows.length, 1);
+  await db.query('insert into public.smell_reports(site_id,user_id,intensity) values($1,$2,4)', [
+    site,
+    resident,
+  ]);
+  await assert.rejects(
+    db.query('insert into public.smell_reports(site_id,user_id,intensity) values($1,$2,4)', [
+      site,
+      owner,
+    ]),
+  );
+  await assert.rejects(
+    db.query('insert into public.devices(site_id,name,device_identifier) values($1,$2,$3)', [
+      site,
+      'Bad',
+      'bad',
+    ]),
+  );
+  await assert.rejects(
+    db.query("update public.site_members set role='owner' where user_id=$1", [resident]),
+  );
+  await assert.rejects(
+    db.query('select public.rotate_device_key($1,$2)', [device, 'a'.repeat(64)]),
+  );
+  await assert.rejects(db.query('select * from public.device_api_keys'));
+  await assert.rejects(
+    db.query('select public.add_resident($1,$2)', [site, 'stranger@test.invalid']),
+  );
+  await login(stranger);
+  for (const table of [
+    'sites',
+    'devices',
+    'site_members',
+    'smell_reports',
+    'minute_aggregates',
+    'site_state_events',
+  ])
+    assert.equal((await db.query(`select * from public.${table}`)).rows.length, 0, table);
+  await assert.rejects(
+    db.query(
+      'insert into public.site_state_events(site_id,user_id,event_type,value) values($1,$2,$3,true)',
+      [site, stranger, 'window_open'],
+    ),
+  );
+  await login(owner);
+  await db.query('select public.rotate_device_key($1,$2)', [device, 'a'.repeat(64)]);
+  const payload = {
+    device_identifier: 'test-001',
+    minute_start_utc: '2026-01-01T00:00:00Z',
+    tvoc_mean: 180,
+    tvoc_min: 160,
+    tvoc_max: 200,
+    eco2_mean: 650,
+    eco2_min: 600,
+    eco2_max: 700,
+    aqi_max: 2,
+    sample_count: 12,
+  };
+  await assert.rejects(db.query('select public.ingest_minute($1,$2)', [payload, 'a'.repeat(64)]));
+  await db.exec('reset role;set role service_role');
+  assert.equal(
+    (
+      await db.query<{ ok: boolean }>('select public.ingest_minute($1,$2) as ok', [
+        payload,
+        'b'.repeat(64),
+      ])
+    ).rows[0].ok,
+    false,
+  );
+  for (let i = 0; i < 2; i++)
+    assert.equal(
+      (
+        await db.query<{ ok: boolean }>('select public.ingest_minute($1,$2) as ok', [
+          payload,
+          'a'.repeat(64),
+        ])
+      ).rows[0].ok,
+      true,
+    );
+  assert.equal((await db.query('select * from public.minute_aggregates')).rows.length, 1);
+  assert.ok(
+    (await db.query<{ last_seen_at: string }>('select last_seen_at from public.devices')).rows[0]
+      .last_seen_at,
+  );
+  await login(stranger);
+  assert.equal((await db.query('select * from public.minute_aggregates')).rows.length, 0);
+  await login(resident);
+  assert.equal((await db.query('select * from public.minute_aggregates')).rows.length, 1);
+  await login(owner);
+  await db.query('select public.revoke_device_key($1)', [device]);
+  await db.exec('reset role;set role service_role');
+  assert.equal(
+    (
+      await db.query<{ ok: boolean }>('select public.ingest_minute($1,$2) as ok', [
+        payload,
+        'a'.repeat(64),
+      ])
+    ).rows[0].ok,
+    false,
+  );
+  await login(owner);
+  await db.query('select public.remove_resident($1,$2)', [site, owner]);
+  assert.equal(
+    (await db.query("select * from public.site_members where role='owner'")).rows.length,
+    1,
+  );
+  await db.query('select public.remove_resident($1,$2)', [site, resident]);
+  await login(resident);
+  assert.equal((await db.query('select * from public.smell_reports')).rows.length, 0);
+  await db.close();
 });

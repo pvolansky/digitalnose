@@ -1,12 +1,153 @@
 'use client';
-import {useState} from 'react';
-import type {Reading} from '@/lib/domain/types';
-import {splitReadingGaps} from '@/lib/domain/readings';
-const metrics={tvoc_mean:{label:'TVOC',unit:'ppb'},eco2_mean:{label:'eCO₂',unit:'ppm'},aqi_max:{label:'AQI',unit:'index'}} as const;
-export function ReadingChart({readings,timezone,start,end}:{readings:Reading[];timezone:string;start:number;end:number}){
- const [metric,setMetric]=useState<keyof typeof metrics>('tvoc_mean');const meta=metrics[metric];
- const values=readings.map(r=>Number(r[metric]));const top=metric==='aqi_max'?5:Math.max(10,...values)*1.12;
- const x=(t:string)=>54+(Date.parse(t)-start)/(end-start)*900;const y=(v:number)=>225-v/top*190;
- const time=(n:number)=>new Intl.DateTimeFormat('en-GB',{timeZone:timezone,month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(n);
- return <section className="panel"><div className="row spread"><h2>Air over time</h2><div className="row" role="group" aria-label="Chart measurement">{Object.entries(metrics).map(([key,value])=><button key={key} className={metric===key?'':'secondary'} style={{padding:'8px 14px'}} aria-pressed={metric===key} onClick={()=>setMetric(key as keyof typeof metrics)}>{value.label}</button>)}</div></div><p className="muted" style={{fontSize:13}}>One-minute {metric==='aqi_max'?'maximum':'mean'} · {meta.unit} · {timezone}</p>{readings.length?<><svg viewBox="0 0 980 280" style={{width:'100%',height:'auto',minHeight:190}} role="img" aria-label={`${meta.label} history, ${readings.length} one-minute readings. Gaps indicate missing data.`}><title>{meta.label} · recorded one-minute values</title>{[0,.25,.5,.75,1].map(f=><g key={f}><line x1="54" y1={y(top*f)} x2="954" y2={y(top*f)} stroke="#dce3da" strokeDasharray={f?'3 5':undefined}/><text x="42" y={y(top*f)+4} textAnchor="end" fill="#677670" fontSize="12">{Math.round(top*f)}</text></g>)}{splitReadingGaps(readings).map((group,i)=>group.length===1?<circle key={i} cx={x(group[0].minute_start_utc)} cy={y(Number(group[0][metric]))} r="3" fill="#21664b"/>:<polyline key={i} points={group.map(r=>`${x(r.minute_start_utc).toFixed(2)},${y(Number(r[metric])).toFixed(2)}`).join(' ')} fill="none" stroke="#21664b" strokeWidth="2" vectorEffect="non-scaling-stroke"/>)}<text x="54" y="262" fontSize="12" fill="#677670">{time(start)}</text><text x="954" y="262" textAnchor="end" fontSize="12" fill="#677670">{time(end)}</text></svg><details><summary className="muted" style={{cursor:'pointer',fontSize:13}}>View latest 60 readings as a table</summary><div style={{maxHeight:320,overflow:'auto'}}><table style={{width:'100%',textAlign:'left',fontSize:13}}><thead><tr><th>Local time</th><th>TVOC ppb</th><th>eCO₂ ppm</th><th>AQI</th><th>Samples</th></tr></thead><tbody>{readings.slice(-60).reverse().map(r=><tr key={r.id}><td>{time(Date.parse(r.minute_start_utc))}</td><td>{r.tvoc_mean}</td><td>{r.eco2_mean}</td><td>{r.aqi_max}</td><td>{r.sample_count}/12</td></tr>)}</tbody></table></div></details></>:<div style={{padding:'65px 0',textAlign:'center'}}><p>No readings in this time range.</p><p className="muted">Your chart will appear when a device syncs its first minute.</p></div>}</section>;
+import { useState } from 'react';
+import type { Reading } from '@/lib/domain/types';
+import { splitReadingGaps } from '@/lib/domain/readings';
+const metrics = {
+  tvoc_mean: { label: 'TVOC', unit: 'ppb' },
+  eco2_mean: { label: 'eCO₂', unit: 'ppm' },
+  aqi_max: { label: 'AQI', unit: 'index' },
+} as const;
+export function ReadingChart({
+  readings,
+  timezone,
+  start,
+  end,
+}: {
+  readings: Reading[];
+  timezone: string;
+  start: number;
+  end: number;
+}) {
+  const [metric, setMetric] = useState<keyof typeof metrics>('tvoc_mean');
+  const meta = metrics[metric];
+  const values = readings.map((r) => Number(r[metric]));
+  const top = metric === 'aqi_max' ? 5 : Math.max(10, ...values) * 1.12;
+  const x = (t: string) => 54 + ((Date.parse(t) - start) / (end - start)) * 900;
+  const y = (v: number) => 225 - (v / top) * 190;
+  const time = (n: number) =>
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(n);
+  return (
+    <section className="panel">
+      <div className="row spread">
+        <h2>Air over time</h2>
+        <div className="row" role="group" aria-label="Chart measurement">
+          {Object.entries(metrics).map(([key, value]) => (
+            <button
+              key={key}
+              className={metric === key ? '' : 'secondary'}
+              style={{ padding: '8px 14px' }}
+              aria-pressed={metric === key}
+              onClick={() => setMetric(key as keyof typeof metrics)}
+            >
+              {value.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="muted" style={{ fontSize: 13 }}>
+        One-minute {metric === 'aqi_max' ? 'maximum' : 'mean'} · {meta.unit} · {timezone}
+      </p>
+      {readings.length ? (
+        <>
+          <svg
+            viewBox="0 0 980 280"
+            style={{ width: '100%', height: 'auto', minHeight: 190 }}
+            role="img"
+            aria-label={`${meta.label} history, ${readings.length} one-minute readings. Gaps indicate missing data.`}
+          >
+            <title>{meta.label} · recorded one-minute values</title>
+            {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+              <g key={f}>
+                <line
+                  x1="54"
+                  y1={y(top * f)}
+                  x2="954"
+                  y2={y(top * f)}
+                  stroke="#dce3da"
+                  strokeDasharray={f ? '3 5' : undefined}
+                />
+                <text x="42" y={y(top * f) + 4} textAnchor="end" fill="#677670" fontSize="12">
+                  {Math.round(top * f)}
+                </text>
+              </g>
+            ))}
+            {splitReadingGaps(readings).map((group, i) =>
+              group.length === 1 ? (
+                <circle
+                  key={i}
+                  cx={x(group[0].minute_start_utc)}
+                  cy={y(Number(group[0][metric]))}
+                  r="3"
+                  fill="#21664b"
+                />
+              ) : (
+                <polyline
+                  key={i}
+                  points={group
+                    .map(
+                      (r) =>
+                        `${x(r.minute_start_utc).toFixed(2)},${y(Number(r[metric])).toFixed(2)}`,
+                    )
+                    .join(' ')}
+                  fill="none"
+                  stroke="#21664b"
+                  strokeWidth="2"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ),
+            )}
+            <text x="54" y="262" fontSize="12" fill="#677670">
+              {time(start)}
+            </text>
+            <text x="954" y="262" textAnchor="end" fontSize="12" fill="#677670">
+              {time(end)}
+            </text>
+          </svg>
+          <details>
+            <summary className="muted" style={{ cursor: 'pointer', fontSize: 13 }}>
+              View latest 60 readings as a table
+            </summary>
+            <div style={{ maxHeight: 320, overflow: 'auto' }}>
+              <table style={{ width: '100%', textAlign: 'left', fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Local time</th>
+                    <th>TVOC ppb</th>
+                    <th>eCO₂ ppm</th>
+                    <th>AQI</th>
+                    <th>Samples</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {readings
+                    .slice(-60)
+                    .reverse()
+                    .map((r) => (
+                      <tr key={r.id}>
+                        <td>{time(Date.parse(r.minute_start_utc))}</td>
+                        <td>{r.tvoc_mean}</td>
+                        <td>{r.eco2_mean}</td>
+                        <td>{r.aqi_max}</td>
+                        <td>{r.sample_count}/12</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </>
+      ) : (
+        <div style={{ padding: '65px 0', textAlign: 'center' }}>
+          <p>No readings in this time range.</p>
+          <p className="muted">Your chart will appear when a device syncs its first minute.</p>
+        </div>
+      )}
+    </section>
+  );
 }

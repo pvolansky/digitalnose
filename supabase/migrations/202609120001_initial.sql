@@ -137,5 +137,5 @@ begin
  if not found then raise exception 'Owner access required'; end if;
  update public.device_api_keys set revoked_at=now() where device_id=target_device and revoked_at is null;
 end; $$;
-revoke execute on all functions in schema public from public, anon, authenticated;
+revoke execute on function public.is_site_member(uuid),public.is_site_owner(uuid),public.handle_new_user(),public.create_site(text),public.add_resident(uuid,text),public.remove_resident(uuid,uuid),public.rotate_device_key(uuid,text),public.revoke_device_key(uuid) from public, anon, authenticated;
 grant execute on function public.is_site_member(uuid),public.is_site_owner(uuid),public.create_site(text),public.add_resident(uuid,text),public.remove_resident(uuid,uuid),public.rotate_device_key(uuid,text),public.revoke_device_key(uuid) to authenticated;

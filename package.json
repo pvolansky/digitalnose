@@ -1,1 +1,43 @@
-{"name":"digitalnose","version":"0.1.0","private":true,"license":"Apache-2.0","scripts":{"dev":"next dev","build":"next build","start":"next start","lint":"eslint .","typecheck":"tsc --noEmit","test":"node --import tsx --test tests/*.test.ts","check":"npm run lint && npm run typecheck && npm test"},"dependencies":{"@supabase/ssr":"latest","@supabase/supabase-js":"latest","next":"16.3.5","react":"19.3.0","react-dom":"19.3.0","server-only":"latest"},"devDependencies":{"@electric-sql/pglite":"^0.5.8","@tailwindcss/postcss":"latest","@types/node":"latest","@types/react":"latest","@types/react-dom":"latest","eslint":"latest","eslint-config-next":"16.3.5","tailwindcss":"latest","tsx":"latest","typescript":"latest"}}
+{
+  "name": "digitalnose",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "test:pi": "python3 -m unittest discover -s edge/raspberry-pi -p 'test_*.py'",
+    "seed": "node --env-file=.env --import tsx scripts/seed-demo.ts",
+    "format": "prettier --write app components lib tests scripts proxy.ts",
+    "format:check": "prettier --check app components lib tests scripts proxy.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "latest"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "16.3.5",
+    "prettier": "^3.9.6",
+    "tailwindcss": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

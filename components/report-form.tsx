@@ -1,6 +1,102 @@
 'use client';
-import {useActionState,useRef} from 'react';
-import {reportSmell} from '@/app/report/actions';
-import {smellTypes} from '@/lib/domain/reports';
-export function ReportForm({siteId,demo=false}:{siteId:string;demo?:boolean}){const [state,action,pending]=useActionState(reportSmell,{});return <form action={demo?undefined:action} onSubmit={demo?e=>e.preventDefault():undefined} className="stack"><input name="site_id" value={siteId} type="hidden"/><fieldset style={{border:0,padding:0}}><legend style={{marginBottom:14}}>How strong is it?</legend><div className="intensity">{[1,2,3,4,5].map(n=><label key={n}><input type="radio" name="intensity" value={n} required aria-label={`${n} out of 5`}/><span>{n}</span></label>)}</div><div className="row spread muted" style={{fontSize:12}}><span>Faint</span><span>Very strong</span></div></fieldset><div><label htmlFor="smell_type">Type <span className="muted">(optional)</span></label><select id="smell_type" name="smell_type"><option value="">Choose a type</option>{smellTypes.map(s=><option key={s}>{s}</option>)}</select></div><div><label htmlFor="note">Note <span className="muted">(optional)</span></label><textarea id="note" name="note" rows={3} maxLength={1000} placeholder="Anything you noticed…"/></div>{state.error&&<p role="alert" className="error">{state.error}</p>}{state.message&&<p role="status" className="success">{state.message}</p>}{demo?<p className="muted">Demo only. Sign in to save observations.</p>:<button disabled={pending}>{pending?'Saving…':'Report smell'}</button>}</form>}
-export function ReportButton({siteId,demo=false}:{siteId:string;demo?:boolean}){const dialog=useRef<HTMLDialogElement>(null);return <><button className="mobile-report" onClick={()=>dialog.current?.showModal()} style={{minWidth:220,padding:'17px 26px'}}>＋ I can smell it</button><dialog ref={dialog} aria-labelledby="report-title"><div className="row spread"><h2 id="report-title">Record a smell</h2><button className="secondary" aria-label="Close report form" onClick={()=>dialog.current?.close()}>×</button></div><ReportForm siteId={siteId} demo={demo}/></dialog></>}
+import { useActionState, useRef } from 'react';
+import { reportSmell } from '@/app/report/actions';
+import { smellTypes } from '@/lib/domain/reports';
+export function ReportForm({ siteId, demo = false }: { siteId: string; demo?: boolean }) {
+  const [state, action, pending] = useActionState(reportSmell, {});
+  return (
+    <form
+      action={demo ? undefined : action}
+      onSubmit={demo ? (e) => e.preventDefault() : undefined}
+      className="stack"
+    >
+      <input name="site_id" value={siteId} type="hidden" />
+      <fieldset style={{ border: 0, padding: 0 }}>
+        <legend style={{ marginBottom: 14 }}>How strong is it?</legend>
+        <div className="intensity">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <label key={n}>
+              <input
+                type="radio"
+                name="intensity"
+                value={n}
+                required
+                aria-label={`${n} out of 5`}
+              />
+              <span>{n}</span>
+            </label>
+          ))}
+        </div>
+        <div className="row spread muted" style={{ fontSize: 12 }}>
+          <span>Faint</span>
+          <span>Very strong</span>
+        </div>
+      </fieldset>
+      <div>
+        <label htmlFor="smell_type">
+          Type <span className="muted">(optional)</span>
+        </label>
+        <select id="smell_type" name="smell_type">
+          <option value="">Choose a type</option>
+          {smellTypes.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label htmlFor="note">
+          Note <span className="muted">(optional)</span>
+        </label>
+        <textarea
+          id="note"
+          name="note"
+          rows={3}
+          maxLength={1000}
+          placeholder="Anything you noticed…"
+        />
+      </div>
+      {state.error && (
+        <p role="alert" className="error">
+          {state.error}
+        </p>
+      )}
+      {state.message && (
+        <p role="status" className="success">
+          {state.message}
+        </p>
+      )}
+      {demo ? (
+        <p className="muted">Demo only. Sign in to save observations.</p>
+      ) : (
+        <button disabled={pending}>{pending ? 'Saving…' : 'Report smell'}</button>
+      )}
+    </form>
+  );
+}
+export function ReportButton({ siteId, demo = false }: { siteId: string; demo?: boolean }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  return (
+    <>
+      <button
+        className="mobile-report"
+        onClick={() => dialog.current?.showModal()}
+        style={{ minWidth: 220, padding: '17px 26px' }}
+      >
+        ＋ I can smell it
+      </button>
+      <dialog ref={dialog} aria-labelledby="report-title">
+        <div className="row spread">
+          <h2 id="report-title">Record a smell</h2>
+          <button
+            className="secondary"
+            aria-label="Close report form"
+            onClick={() => dialog.current?.close()}
+          >
+            ×
+          </button>
+        </div>
+        <ReportForm siteId={siteId} demo={demo} />
+      </dialog>
+    </>
+  );
+}
