@@ -55,13 +55,14 @@ export default function Home() {
             <span /> Open-source air sensing
           </p>
           <h1 id="intro-title">
-            There’s more to <span className={styles.airGradient}>air</span>
+            Understand what’s
             <br />
-            than a number.
+            in the <span className={styles.airGradient}>air.</span>
           </h1>
           <p className={styles.lead}>
-            Keep a record of air readings, smell reports and local conditions, ready to revisit when
-            you need to understand what happened.
+            Digital Nose captures environmental signals to detect odour events, track changing
+            conditions and build a clear record of what happened, when it happened and how the
+            surrounding environment changed.
           </p>
           <div className={styles.actions}>
             <Link href="/demo" className={styles.primary}>
@@ -73,7 +74,7 @@ export default function Home() {
               View on GitHub
             </a>
           </div>
-          <p className={styles.micro}>No account needed for the demo. Apache 2.0 licensed.</p>
+          <p className={styles.micro}>No account needed for the demo.</p>
         </section>
 
         <section className={styles.showcase} aria-label="Illustrative product preview">
