@@ -1,4 +1,5 @@
 import type { Reading, Site, Device, SmellReport, StateEvent } from './types';
+import type { WeatherObservation } from '../weather/types';
 export function demoData(now: number) {
   const site: Site = {
     id: 'demo',
@@ -36,6 +37,7 @@ export function demoData(now: number) {
   const reports: SmellReport[] = [
     {
       id: 'r1',
+      reporter_display_name: 'Alex',
       site_id: 'demo',
       user_id: 'demo-user',
       reported_at: new Date(end - 420 * 60000).toISOString(),
@@ -45,8 +47,9 @@ export function demoData(now: number) {
     },
     {
       id: 'r2',
+      reporter_display_name: 'Sam',
       site_id: 'demo',
-      user_id: 'demo-user',
+      user_id: 'demo-resident',
       reported_at: new Date(end - 900 * 60000).toISOString(),
       intensity: 2,
       smell_type: 'Cooking',
@@ -70,5 +73,26 @@ export function demoData(now: number) {
     recorded_at: new Date(end - Number(minutes) * 60000).toISOString(),
   }));
 
-  return { site, device, readings, reports, events };
+  const weatherEnd = Math.floor(now / (15 * 60000)) * 15 * 60000;
+  const round = (value: number) => Math.round(value * 10) / 10;
+  const history: WeatherObservation[] = Array.from({ length: 97 }, (_, i) => {
+    const phase = (i / 96) * Math.PI * 2;
+    const wind = round(12 + 5 * Math.sin(phase + 0.8));
+    const rain = i >= 62 && i <= 70;
+    return {
+      observed_at_utc: new Date(weatherEnd - (96 - i) * 15 * 60000).toISOString(),
+      temperature_c: round(18 + 3 * Math.sin(phase - 1)),
+      relative_humidity_pct: Math.round(65 - 12 * Math.sin(phase - 1)),
+      surface_pressure_hpa: round(1015 + 3 * Math.cos(phase / 2)),
+      precipitation_mm: rain ? 0.3 : 0,
+      wind_speed_kmh: wind,
+      wind_direction_deg: Math.round(225 + 45 * Math.sin(phase)),
+      wind_gust_kmh: round(wind + 5 + 2 * Math.cos(phase)),
+      weather_code: rain ? 61 : 2,
+      source: 'demo',
+      model: null,
+    };
+  });
+  const weather = { latest: history.at(-1)!, history, unavailable: false };
+  return { site, device, readings, reports, events, weather };
 }

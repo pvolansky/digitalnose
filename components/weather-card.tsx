@@ -71,12 +71,16 @@ export function WeatherCard({
               : 'No weather observations yet. Weather will appear after a scheduled refresh.'}
         </p>
       )}
-      <p className="weather-note muted">
-        <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
-          Weather data by Open-Meteo
-        </a>{' '}
-        · Best Match · Wind direction means where wind comes from.
-      </p>
+      {demo ? (
+        <p className="weather-note muted">Example weather for exploring the demo.</p>
+      ) : (
+        <p className="weather-note muted">
+          <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
+            Weather data by Open-Meteo
+          </a>{' '}
+          · Best Match · Wind direction means where wind comes from.
+        </p>
+      )}
     </section>
   );
 }
@@ -98,7 +102,7 @@ export function WeatherAtMoment({ observation }: { observation: WeatherObservati
           </span>
           <span className="muted">
             {new Date(observation.observed_at_utc).toISOString().slice(0, 16).replace('T', ' ')} UTC
-            · external model data
+            · {observation.source === 'demo' ? 'illustrative weather' : 'external model data'}
           </span>
         </>
       ) : (

@@ -8,7 +8,7 @@ export type WeatherObservation = {
   wind_direction_deg: number | null;
   wind_gust_kmh: number | null;
   weather_code: number | null;
-  source: 'open-meteo';
+  source: 'open-meteo' | 'demo';
   model: string | null;
   metadata?: Record<string, number | string | null>;
 };

@@ -2,6 +2,8 @@
 
 Digital Nose is an open-source distributed odour-monitoring platform combining low-cost edge sensors, Raspberry Pi telemetry, resident observations, and cloud analytics.
 
+Visit [digitalnose.ai](https://digitalnose.ai), [explore the demo](https://digitalnose.ai/demo), or [open the dashboard](https://digitalnose.ai/dashboard).
+
 Licensed under Apache License 2.0.
 
 V1 connects one-minute ENS160 aggregates with short resident smell reports and timestamped window/occupancy context. Sensor measurements remain the primary record; observations provide context and labels for future analysis.
@@ -45,7 +47,7 @@ The local `.env` is ignored by Git. Never overwrite an existing `DEVICE_KEY_PEPP
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase **publishable** key (or legacy anon key); compatibility variable name       |
 | `SUPABASE_SERVICE_ROLE_KEY`     | Supabase **secret** key (or legacy service-role key); server-only compatibility name |
 | `DEVICE_KEY_PEPPER`             | At least 32 random characters; generate with `openssl rand -hex 32`                  |
-| `NEXT_PUBLIC_APP_URL`           | Canonical application origin, e.g. `http://localhost:3000` or your HTTPS deployment  |
+| `APP_URL` / `NEXT_PUBLIC_APP_URL`           | Canonical application origin, e.g. `http://localhost:3000` or your HTTPS deployment  |
 
 Only variables prefixed `NEXT_PUBLIC_` may enter browser code. The privileged Supabase client imports `server-only`. The ingestion endpoint uses the server secret; resident requests use the resident session and RLS.
 
@@ -68,7 +70,7 @@ Alternatively run the migration files in order in the project's SQL editor, each
 In Supabase Auth:
 
 1. Enable email/password sign-up and email confirmation.
-2. Set the Site URL to `NEXT_PUBLIC_APP_URL` and allow `<origin>/auth/confirm` in Redirect URLs, for development and production origins you use.
+2. For production, use `https://digitalnose.ai` with `https://digitalnose.ai/auth/confirm` as an allowed redirect. Set the Site URL to `NEXT_PUBLIC_APP_URL` and allow `<origin>/auth/confirm` in Redirect URLs, for development and production origins you use.
 3. After configuring custom SMTP (required by the hosted template editor), set the **Confirm signup** email link to `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`. This supports confirmation on a different browser/device. The callback also supports a PKCE `code`.
 4. Configure your production SMTP sender and appropriate Auth rate limits before inviting residents.
 
@@ -136,7 +138,7 @@ Errors: 400 invalid payload, 401 invalid credentials, 413 oversized body, 415 wr
 ## Deploy to Vercel
 
 1. Import this Git repository into Vercel using the Next.js preset and Node.js 22 or later. The repository root is the app root.
-2. Set all five environment variables for the deployment environment. Set `NEXT_PUBLIC_APP_URL` to the final HTTPS origin. Keep the pepper stable and server secrets out of preview environments that do not need production access.
+2. Set all five environment variables for the deployment environment. For digitalnose.ai, set `APP_URL=https://digitalnose.ai` (takes precedence over the legacy `NEXT_PUBLIC_APP_URL`). Add the domain to the Vercel project and configure the DNS records shown by Vercel. In Supabase Auth URL Configuration, set Site URL to `https://digitalnose.ai` and allow `https://digitalnose.ai/auth/confirm`. Keep localhost redirects if you use local development. Redeploy after changing the environment variable. Keep the pepper stable and server secrets out of preview environments that do not need production access.
 3. Apply the Supabase migrations and configure Auth URLs/email as described above.
 4. Run `npm run check`, `npm run test:pi`, and `npm run build` before deploying.
 5. Deploy. Sign up, confirm the account, create the site/device, and provision the Pi key through Settings.

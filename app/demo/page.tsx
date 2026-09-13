@@ -6,7 +6,7 @@ import { demoData } from '@/lib/domain/demo';
 export const dynamic = 'force-dynamic';
 export default async function Demo() {
   const now = await requestTime();
-  const { site, device, readings, reports, events } = demoData(now);
+  const { site, device, readings, reports, events, weather } = demoData(now);
   return (
     <Shell site={site} demo>
       <div className="row spread page-heading">
@@ -23,7 +23,7 @@ export default async function Demo() {
         initial={{
           now,
           lastSeenAt: device.last_seen_at,
-          weather: { latest: null, history: [], unavailable: false },
+          weather,
           readings,
           latest: readings.at(-1)!,
           events,

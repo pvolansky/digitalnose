@@ -2,7 +2,7 @@
 import { useActionState, useRef, useState, useId } from 'react';
 import { LuPlus, LuX, LuLoaderCircle } from 'react-icons/lu';
 import { reportSmell } from '@/app/report/actions';
-import { smellTypes } from '@/lib/domain/reports';
+import { SmellTypeSelect } from './smell-type-select';
 export function ReportForm({
   siteId,
   demo = false,
@@ -12,6 +12,7 @@ export function ReportForm({
   demo?: boolean;
   onDone?: () => void;
 }) {
+  const fieldId = useId();
   const [intensity, setIntensity] = useState('');
   const [smellType, setSmellType] = useState('');
   const [note, setNote] = useState('');
@@ -45,11 +46,11 @@ export function ReportForm({
     <form
       action={demo ? undefined : action}
       onSubmit={demo ? (e) => e.preventDefault() : undefined}
-      className="stack"
+      className="stack report-fields"
     >
       <input name="site_id" value={siteId} type="hidden" />
-      <fieldset style={{ border: 0, padding: 0 }}>
-        <legend style={{ marginBottom: 14 }}>How strong is it?</legend>
+      <fieldset className="report-intensity">
+        <legend>How strong is it?</legend>
         <div className="intensity">
           {[1, 2, 3, 4, 5].map((n) => (
             <label key={n}>
@@ -66,33 +67,23 @@ export function ReportForm({
             </label>
           ))}
         </div>
-        <div className="row spread muted" style={{ fontSize: 12 }}>
+        <div className="row spread muted report-scale-labels">
           <span>Faint</span>
           <span>Very strong</span>
         </div>
       </fieldset>
       <div>
-        <label htmlFor="smell_type">
+        <label id={`${fieldId}-type-label`} htmlFor={`${fieldId}-type`}>
           Type <span className="muted">(optional)</span>
         </label>
-        <select
-          id="smell_type"
-          name="smell_type"
-          value={smellType}
-          onChange={(e) => setSmellType(e.target.value)}
-        >
-          <option value="">Choose a type</option>
-          {smellTypes.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
+        <SmellTypeSelect id={`${fieldId}-type`} value={smellType} onChange={setSmellType} />
       </div>
       <div>
-        <label htmlFor="note">
+        <label htmlFor={`${fieldId}-note`}>
           Note <span className="muted">(optional)</span>
         </label>
         <textarea
-          id="note"
+          id={`${fieldId}-note`}
           name="note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -112,7 +103,7 @@ export function ReportForm({
         </p>
       )}
       {demo ? (
-        <p className="muted">Demo only. Sign in to save observations.</p>
+        <p className="muted report-demo-note">Demo only. Sign in to save observations.</p>
       ) : (
         <button disabled={pending}>
           {pending && <LuLoaderCircle className="spin" aria-hidden="true" />}
@@ -138,11 +129,11 @@ export function ReportButton({ siteId, demo = false }: { siteId: string; demo?: 
       >
         <LuPlus aria-hidden="true" /> Report a smell
       </button>
-      <dialog ref={dialog} aria-labelledby={titleId}>
-        <div className="row spread">
+      <dialog className="report-dialog" ref={dialog} aria-labelledby={titleId}>
+        <div className="row spread report-dialog-heading">
           <h2 id={titleId}>Record a smell</h2>
           <button
-            className="secondary"
+            className="secondary report-close"
             aria-label="Close report form"
             onClick={() => dialog.current?.close()}
           >

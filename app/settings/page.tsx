@@ -112,9 +112,9 @@ export default async function Settings({
             <p>
               <a
                 style={{ textDecoration: 'underline', overflowWrap: 'anywhere' }}
-                href={`${process.env.NEXT_PUBLIC_APP_URL}/login`}
+                href={`${(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)?.replace(/\/$/, '')}/login`}
               >
-                {process.env.NEXT_PUBLIC_APP_URL}/login
+                {(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)?.replace(/\/$/, '')}/login
               </a>
             </p>
             <div className="form">

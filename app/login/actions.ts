@@ -20,7 +20,9 @@ export async function authenticate(_: AuthResult, form: FormData): Promise<AuthR
     const { error } = await db.auth.resend({
       type: 'signup',
       email,
-      options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm` },
+      options: {
+        emailRedirectTo: `${(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)?.replace(/\/$/, '')}/auth/confirm`,
+      },
     });
     if (error)
       return {
@@ -42,7 +44,9 @@ export async function authenticate(_: AuthResult, form: FormData): Promise<AuthR
     const { data, error } = await db.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm` },
+      options: {
+        emailRedirectTo: `${(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)?.replace(/\/$/, '')}/auth/confirm`,
+      },
     });
     if (
       error?.code === 'user_already_exists' ||

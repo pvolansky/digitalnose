@@ -20,7 +20,7 @@ export function Shell({
     <>
       <header>
         <div className="container row spread">
-          <Link className="brand" href={demo ? '/demo' : '/dashboard'}>
+          <Link className="brand" href="/">
             <BrandMark /> Digital Nose
           </Link>
           <Navigation suffix={suffix} demo={demo} />

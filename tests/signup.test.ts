@@ -4,7 +4,10 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 // Exercise the actual server action with Supabase and redirects stubbed; no emails are sent.
-function action(auth: object) {
+function action(
+  auth: object,
+  env: Record<string, string> = { NEXT_PUBLIC_APP_URL: 'https://example.test' },
+) {
   const output = ts.transpileModule(readFileSync('app/login/actions.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
@@ -21,7 +24,7 @@ function action(auth: object) {
   } = {};
   runInNewContext(output, {
     exports,
-    process: { env: { NEXT_PUBLIC_APP_URL: 'https://example.test' } },
+    process: { env },
     require: (name: string) => {
       if (name === '@/lib/supabase/server') return { serverClient: async () => ({ auth }) };
       if (name === 'next/navigation')
@@ -122,4 +125,25 @@ test('email throttling never claims signup succeeded or an activation email was 
   })('signup');
   assert.match(result.error ?? '', /email limit has been reached/);
   assert.equal(result.confirmationRequired, undefined);
+});
+
+test('production APP_URL takes precedence for signup and resend callbacks', async () => {
+  const callbacks: string[] = [];
+  const capture = async (input: { options: { emailRedirectTo: string } }) => {
+    callbacks.push(input.options.emailRedirectTo);
+    return { data: { session: null }, error: null };
+  };
+  const run = action(
+    { signUp: capture, resend: capture },
+    {
+      APP_URL: 'https://digitalnose.ai/',
+      NEXT_PUBLIC_APP_URL: 'https://example.test',
+    },
+  );
+  await run('signup');
+  await run('resend');
+  assert.deepEqual(callbacks, [
+    'https://digitalnose.ai/auth/confirm',
+    'https://digitalnose.ai/auth/confirm',
+  ]);
 });
