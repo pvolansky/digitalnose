@@ -9,6 +9,8 @@ export async function changeState(
   if (!['window_open', 'user_in_room'].includes(type) || typeof value !== 'boolean')
     return { error: 'Invalid context change.' };
   const { db, user } = await requireUser();
+  const { data: owner, error: ownerError } = await db.rpc('is_site_owner', { target: siteId });
+  if (ownerError || !owner) return { error: 'Only the owner can update room context.' };
   const { error } = await db
     .from('site_state_events')
     .insert({ site_id: siteId, user_id: user.id, event_type: type, value });

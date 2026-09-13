@@ -13,7 +13,7 @@ export default async function Dashboard({
   searchParams: Promise<{ site?: string; range?: string; device?: string }>;
 }) {
   const params = await searchParams;
-  const { db, user, site, sites, devices } = await siteContext(params.site);
+  const { db, user, site, sites, devices, role } = await siteContext(params.site);
   if (!site)
     return (
       <Shell>
@@ -23,9 +23,7 @@ export default async function Dashboard({
   const range = parseRange(params.range);
   const device = devices.find((d) => d.id === params.device) || devices[0];
   const now = await requestTime();
-  const [result] = await Promise.allSettled([
-    loadOverview(db, site.id, user.id, device?.id, range, now),
-  ]);
+  const [result] = await Promise.allSettled([loadOverview(db, site.id, device?.id, range, now)]);
   const initialError = result.status === 'rejected';
   const initial =
     result.status === 'fulfilled'
@@ -71,6 +69,7 @@ export default async function Dashboard({
       )}
       <Overview
         key={`${site.id}:${device?.id}:${range}`}
+        canEditContext={role === 'owner'}
         initial={initial}
         initialError={initialError}
         site={site}

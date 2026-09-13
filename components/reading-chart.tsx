@@ -131,7 +131,7 @@ export function ReadingChart({
   );
   const reading =
     nearest && Math.abs(Date.parse(nearest.minute_start_utc) - at) <= 60000 ? nearest : undefined;
-  const context = contextAt(events, userId, at);
+  const context = contextAt(events, at);
   const windowText =
     context.window_open === undefined
       ? 'Window not recorded'
@@ -142,8 +142,8 @@ export function ReadingChart({
     context.user_in_room === undefined
       ? 'Presence not recorded'
       : context.user_in_room
-        ? 'You were in the room'
-        : 'You were away';
+        ? 'Resident in the room'
+        : 'No resident in the room';
   const dateFormat = useMemo(
     () =>
       new Intl.DateTimeFormat('en-GB', {
@@ -176,12 +176,12 @@ export function ReadingChart({
       (r) => Math.floor(Date.parse(r.reported_at) / 60000) === Math.floor(at / 60000),
     );
   const windowIntervals = useMemo(
-    () => stateIntervals(events, userId, 'window_open', start, end),
-    [events, userId, start, end],
+    () => stateIntervals(events, 'window_open', start, end),
+    [events, start, end],
   );
   const occupancyIntervals = useMemo(
-    () => stateIntervals(events, userId, 'user_in_room', start, end),
-    [events, userId, start, end],
+    () => stateIntervals(events, 'user_in_room', start, end),
+    [events, start, end],
   );
   const plotLines = useMemo(() => {
     const x = (time: number) => 42 + ((time - start) / (end - start)) * (width - 56);
@@ -309,7 +309,7 @@ export function ReadingChart({
         </span>
         <span>
           <i className="legend-presence" />
-          You in the room
+          Resident in the room
         </span>
         <span>
           <i className="legend-report" />
@@ -321,7 +321,7 @@ export function ReadingChart({
           viewBox={`0 0 ${width} 450`}
           style={{ width: '100%', height: 450, display: 'block' }}
           role="group"
-          aria-label={`${combined ? 'All measurements on separate normalised scales' : meta.name} timeline with window, personal presence and smell reports. Use the time slider or event list to inspect.`}
+          aria-label={`${combined ? 'All measurements on separate normalised scales' : meta.name} timeline with window, room occupancy and smell reports. Use the time slider or event list to inspect.`}
           onPointerMove={(e) => {
             if (e.pointerType === 'touch') return;
             const rect = e.currentTarget.getBoundingClientRect();
@@ -702,12 +702,7 @@ export function ReadingChart({
               kind: 'report',
             })),
             ...events
-              .filter(
-                (e) =>
-                  Date.parse(e.recorded_at) >= start &&
-                  Date.parse(e.recorded_at) <= end &&
-                  (e.event_type === 'window_open' || e.user_id === userId),
-              )
+              .filter((e) => Date.parse(e.recorded_at) >= start && Date.parse(e.recorded_at) <= end)
               .map((e) => ({
                 id: e.id,
                 time: e.recorded_at,
@@ -717,8 +712,8 @@ export function ReadingChart({
                       ? 'Window opened'
                       : 'Window closed'
                     : e.value
-                      ? 'You entered the room'
-                      : 'You left the room',
+                      ? 'Resident entered the room'
+                      : 'Resident left the room',
                 kind: e.event_type,
               })),
           ]

@@ -19,7 +19,6 @@ export type OverviewData = {
 export async function loadOverview(
   db: SupabaseClient,
   siteId: string,
-  userId: string,
   deviceId: string | undefined,
   range: Range,
   now: number,
@@ -28,8 +27,8 @@ export async function loadOverview(
     await Promise.all([
       deviceId ? loadReadings(db, deviceId, range, now) : [],
       deviceId ? loadLatestReading(db, deviceId) : null,
-      loadTimeline(db, siteId, userId, now - ranges[range] * 3600000, now),
-      loadState(db, siteId, userId),
+      loadTimeline(db, siteId, now - ranges[range] * 3600000, now),
+      loadState(db, siteId),
       loadReports(db, siteId),
       deviceId
         ? db

@@ -20,6 +20,7 @@ export function Overview({
   device,
   range,
   initialError = false,
+  canEditContext = false,
   demo = false,
 }: {
   initial: OverviewData;
@@ -28,11 +29,12 @@ export function Overview({
   device?: Device;
   range: Range;
   initialError?: boolean;
+  canEditContext?: boolean;
   demo?: boolean;
 }) {
   const load = useCallback(
-    () => loadOverview(browserClient(), site.id, userId, device?.id, range, Date.now()),
-    [site.id, userId, device?.id, range],
+    () => loadOverview(browserClient(), site.id, device?.id, range, Date.now()),
+    [site.id, device?.id, range],
   );
   const live = useLiveData(initial, load, initialError, !demo);
   const [demoData, setDemoData] = useState(initial);
@@ -99,8 +101,8 @@ export function Overview({
         end={data.now}
       />
       <ContextToggles
+        canEdit={canEditContext || demo}
         siteId={site.id}
-        userId={userId}
         events={data.currentEvents}
         demo={demo}
         onDemoChange={(type, value) => {

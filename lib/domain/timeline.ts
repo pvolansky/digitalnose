@@ -2,21 +2,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { StateEvent, SmellReport } from './types';
 import { currentState } from './site-state';
 
-export function contextAt(events: StateEvent[], userId: string, at: number) {
-  return currentState(
-    events.filter((e) => Date.parse(e.recorded_at) <= at),
-    userId,
-  );
+export function contextAt(events: StateEvent[], at: number) {
+  return currentState(events.filter((e) => Date.parse(e.recorded_at) <= at));
 }
 export function stateIntervals(
   events: StateEvent[],
-  userId: string,
   type: StateEvent['event_type'],
   start: number,
   end: number,
 ) {
   const relevant = events
-    .filter((e) => e.event_type === type && (type === 'window_open' || e.user_id === userId))
+    .filter((e) => e.event_type === type)
     .sort((a, b) => a.recorded_at.localeCompare(b.recorded_at) || a.id.localeCompare(b.id));
   const points = [
     ...new Set([
@@ -28,22 +24,16 @@ export function stateIntervals(
   return points.slice(0, -1).map((from, i) => ({
     start: from,
     end: points[i + 1],
-    value: contextAt(relevant, userId, from)[type],
+    value: contextAt(relevant, from)[type],
   }));
 }
 
-export async function loadTimeline(
-  db: SupabaseClient,
-  siteId: string,
-  userId: string,
-  start: number,
-  end: number,
-) {
+export async function loadTimeline(db: SupabaseClient, siteId: string, start: number, end: number) {
   const from = new Date(start).toISOString();
   const to = new Date(end).toISOString();
   const seedResults = await Promise.all(
     (['window_open', 'user_in_room'] as const).map((type) => {
-      let q = db
+      const q = db
         .from('site_state_events')
         .select('*')
         .eq('site_id', siteId)
@@ -51,7 +41,6 @@ export async function loadTimeline(
         .lt('recorded_at', from)
         .order('recorded_at', { ascending: false })
         .order('id', { ascending: false });
-      if (type === 'user_in_room') q = q.eq('user_id', userId);
       return q.limit(1);
     }),
   );
@@ -61,7 +50,7 @@ export async function loadTimeline(
   for (const table of ['site_state_events', 'smell_reports'] as const) {
     const time = table === 'site_state_events' ? 'recorded_at' : 'reported_at';
     for (let offset = 0; ; offset += 1000) {
-      let q = db
+      const q = db
         .from(table)
         .select('*')
         .eq('site_id', siteId)
@@ -69,7 +58,6 @@ export async function loadTimeline(
         .lte(time, to)
         .order(time)
         .order('id');
-      if (table === 'site_state_events') q = q.or(`event_type.eq.window_open,user_id.eq.${userId}`);
       const { data, error } = await q.range(offset, offset + 999);
       if (error) throw new Error('Unable to load timeline events.');
       if (table === 'site_state_events') events.push(...(data as StateEvent[]));
