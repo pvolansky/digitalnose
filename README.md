@@ -4,7 +4,7 @@ Digital Nose is an open-source distributed odour-monitoring platform combining l
 
 Visit [digitalnose.ai](https://digitalnose.ai), [explore the demo](https://digitalnose.ai/demo), or [open the dashboard](https://digitalnose.ai/dashboard).
 
-Licensed under Apache License 2.0.
+Licensed under Apache License 2.0. Provided as is, without voluntary warranties. Read the [warranty, liability and safety notice](DISCLAIMER.md) before building or relying on a setup.
 
 V1 connects one-minute ENS160 aggregates with short resident smell reports and timestamped window/occupancy context. Sensor measurements remain the primary record; observations provide context and labels for future analysis.
 
@@ -161,12 +161,21 @@ PGlite is a development-only embedded PostgreSQL test dependency. Tests create r
 
 ## Author
 
-Digital Nose was created by Piotr Wolanski.
+Digital Nose was created by [Piotr Wolanski](https://piotrwolanski.com/).
 
 ## License
 
 Licensed under the Apache License 2.0.
 See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
+
+## Disclaimer of warranty and limitation of liability
+
+Digital Nose is provided **as is**, without warranties or conditions except where required by applicable law or agreed in writing. There is no promise that the software, setup instructions or hardware integration will be error-free, compatible with every device, continuously available or suitable for a particular purpose.
+
+The warranty disclaimer and liability limitations in **sections 7–9 of the [Apache License 2.0](LICENSE)** apply. These address failures and losses arising from use or inability to use the project, subject to the exceptions in the licence and applicable law. Nothing here excludes liability that cannot lawfully be excluded, including death or personal injury caused by negligence where the law prohibits that exclusion, fraud, or mandatory consumer rights.
+
+Digital Nose is an observational tool, not a certified safety alarm or a basis for deciding that air is safe. Review the [full warranty, liability and safety notice](DISCLAIMER.md), follow component manufacturers’ instructions and keep backups before changing an existing installation.
+
 
 ## Weather context
 

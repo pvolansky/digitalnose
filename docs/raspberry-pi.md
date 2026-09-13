@@ -1,5 +1,7 @@
 # Raspberry Pi reference pipeline
 
+Before installation, read the [warranty, liability and safety notice](../DISCLAIMER.md). Follow component manufacturers’ electrical and installation instructions; this project is not a safety alarm.
+
 The web platform accepts the existing Pi's one-minute aggregates. If you already have a collector and aggregator, adapt only the outbox mapping in `sync.py`; inspect and back up the existing database first. The bundled schema stores timestamps as Unix UTC seconds locally. It is not an automatic migration for another edge database.
 
 ## Fresh installation
