@@ -1855,7 +1855,7 @@ footer a {
 }
 .date-time-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .date-time-fields label {
@@ -1865,6 +1865,8 @@ footer a {
   color: var(--muted);
 }
 .date-time-fields input {
+  -webkit-appearance: none;
+  appearance: none;
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -1880,8 +1882,15 @@ footer a {
   text-align: left;
   min-height: 1.4em;
 }
-@media (max-width: 360px) {
-  .date-time-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
+
+.date-time-field {
+  width: 100%;
+  max-width: 100%;
+}
+.date-time-fields input::-webkit-datetime-edit {
+  min-width: 0;
+  padding: 0;
+}
+.date-time-fields input::-webkit-date-and-time-value {
+  width: 100%;
 }
