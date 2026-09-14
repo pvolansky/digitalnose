@@ -16,7 +16,7 @@ export default async function DemoJournal() {
         </div>
         <ReportButton siteId="demo" demo />
       </div>
-      <RecentReports reports={reports} timezone={site.timezone} />
+      <RecentReports compact reports={reports} timezone={site.timezone} />
     </Shell>
   );
 }

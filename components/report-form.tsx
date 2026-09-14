@@ -2,6 +2,7 @@
 import { useActionState, useRef, useState, useId } from 'react';
 import { LuPlus, LuX, LuLoaderCircle } from 'react-icons/lu';
 import { reportSmell } from '@/app/report/actions';
+import { SelectField } from './select-field';
 import { SmellTypeSelect } from './smell-type-select';
 export function ReportForm({
   siteId,
@@ -16,9 +17,22 @@ export function ReportForm({
   const [intensity, setIntensity] = useState('');
   const [smellType, setSmellType] = useState('');
   const [note, setNote] = useState('');
+  const [when, setWhen] = useState('now');
+  const [occurredAt, setOccurredAt] = useState('');
+  const [zone, setZone] = useState('');
   const [state, action, pending] = useActionState(
     async (previous: import('@/lib/domain/types').ActionResult, form: FormData) => {
       try {
+        if (when === 'earlier') {
+          const date = new Date(occurredAt);
+          if (!Number.isFinite(date.getTime())) return { error: 'Choose a valid date and time.' };
+          if (
+            date.getHours() !== Number(occurredAt.slice(11, 13)) ||
+            date.getDate() !== Number(occurredAt.slice(8, 10))
+          )
+            return { error: 'This local time does not exist. Choose another time.' };
+          form.set('reported_at', date.toISOString());
+        }
         const result = await reportSmell(previous, form);
         if (result.message) window.dispatchEvent(new Event('digitalnose:updated'));
         return result;
@@ -49,6 +63,35 @@ export function ReportForm({
       className="stack report-fields"
     >
       <input name="site_id" value={siteId} type="hidden" />
+      <div>
+        <label id={`${fieldId}-when-label`} htmlFor={`${fieldId}-when`}>
+          When did you notice it?
+        </label>
+        <SelectField
+          id={`${fieldId}-when`}
+          value={when}
+          options={[
+            { value: 'now', label: 'Now' },
+            { value: 'earlier', label: 'Earlier' },
+          ]}
+          onChange={(value) => {
+            setWhen(value);
+            setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+          }}
+        />
+        {when === 'earlier' && (
+          <label className="report-observed-at">
+            Date and time
+            <input
+              type="datetime-local"
+              required
+              value={occurredAt}
+              onChange={(event) => setOccurredAt(event.target.value)}
+            />
+            <small className="muted">Your local time ({zone})</small>
+          </label>
+        )}
+      </div>
       <fieldset className="report-intensity">
         <legend>How strong is it?</legend>
         <div className="intensity">

@@ -35,7 +35,7 @@ export function ReportsFeed({
           </button>
         </div>
       )}
-      <RecentReports reports={data} timezone={timezone} />
+      <RecentReports compact reports={data} timezone={timezone} />
       <div className="row">
         {data.length === 50 && (
           <Link

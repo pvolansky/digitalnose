@@ -12,3 +12,15 @@ test('requires an intensity and validates optional report labels', () => {
   f.set('smell_type', 'invented');
   assert.throws(() => validateReport(f));
 });
+
+test('historical reports preserve occurrence time and reject invalid or future timestamps', () => {
+  const form = new FormData();
+  form.set('intensity', '3');
+  const now = Date.parse('2026-09-14T12:00:00.000Z');
+  form.set('reported_at', '2026-09-12T08:30:00.000Z');
+  assert.equal(validateReport(form, now).reported_at, '2026-09-12T08:30:00.000Z');
+  for (const value of ['invalid', '2026-09-15T08:30:00.000Z']) {
+    form.set('reported_at', value);
+    assert.throws(() => validateReport(form, now));
+  }
+});

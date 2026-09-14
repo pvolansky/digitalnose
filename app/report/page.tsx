@@ -28,7 +28,7 @@ export default async function Reports({
         <div>
           <p className="eyebrow">{site.name}</p>
           <h1>Smell journal.</h1>
-          <p className="muted">Resident observations · {site.timezone}</p>
+          <p className="muted">Resident observations</p>
         </div>
         <ReportButton siteId={site.id} />
       </div>

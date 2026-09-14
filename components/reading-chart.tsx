@@ -1,9 +1,9 @@
 'use client';
 import { useState, useEffect, useRef, useId, useMemo, useDeferredValue } from 'react';
+import { createPortal } from 'react-dom';
 import { LuRadio, LuWind, LuUserRound, LuMessageCircle, LuTrendingUp } from 'react-icons/lu';
 import type { Reading, StateEvent, SmellReport } from '@/lib/domain/types';
 import { MetricBadge, MetricInfo } from './metric-info';
-import { WeatherAtMoment } from './weather-card';
 import {
   reportMarkers,
   weatherMarkers,
@@ -12,7 +12,6 @@ import {
 } from '@/lib/domain/chart-context';
 import { degreesToCompass, oppositeBearing } from '@/lib/weather/wind';
 import { weatherValue, windDescription } from '@/lib/weather/context';
-import { nearestWeather } from '@/lib/weather/context';
 import type { WeatherObservation } from '@/lib/weather/types';
 import { splitReadingGaps } from '@/lib/domain/readings';
 import { contextAt, stateIntervals } from '@/lib/domain/timeline';
@@ -91,10 +90,46 @@ export function ReadingChart({
   const chartRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(980);
   const id = useId();
-  const inspectorRef = useRef<HTMLDivElement>(null);
+  const [tooltip, setTooltip] = useState<{ left: number; top: number } | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepTooltip = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+  };
+  const showTooltip = (clientX: number, clientY: number) => {
+    keepTooltip();
+    const size = Math.min(320, window.innerWidth - 24);
+    setTooltip({
+      left: Math.max(
+        12,
+        Math.min(
+          window.innerWidth - size - 12,
+          clientX + size + 24 < window.innerWidth ? clientX + 20 : clientX - size - 20,
+        ),
+      ),
+      top: Math.max(12, Math.min(clientY - 60, window.innerHeight - 332)),
+    });
+  };
+  const hideTooltip = () => {
+    keepTooltip();
+    hideTimer.current = setTimeout(() => setTooltip(null), 160);
+  };
+  useEffect(() => {
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTooltip(null);
+    };
+    document.addEventListener('keydown', dismiss);
+    return () => {
+      document.removeEventListener('keydown', dismiss);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, []);
   const inspectMoment = (time: number) => {
     setSelectedAt(time);
-    inspectorRef.current?.scrollIntoView({ block: 'center', behavior: 'instant' });
+    chartRef.current?.scrollIntoView({ block: 'center', behavior: 'instant' });
+    requestAnimationFrame(() => {
+      const rect = chartRef.current?.getBoundingClientRect();
+      if (rect) showTooltip(rect.left + rect.width / 2, rect.top + 80);
+    });
   };
   useEffect(() => {
     const element = chartRef.current;
@@ -318,12 +353,38 @@ export function ReadingChart({
           Smell report
         </span>
       </div>
-      <div ref={chartRef} className="chart-canvas">
+      <div
+        ref={chartRef}
+        className="chart-canvas"
+        onPointerMoveCapture={(event) => {
+          if (event.pointerType !== 'touch') showTooltip(event.clientX, event.clientY);
+        }}
+        onClickCapture={(event) => showTooltip(event.clientX, event.clientY)}
+        onPointerLeave={hideTooltip}
+        onFocusCapture={(event) => {
+          const rect = event.target.getBoundingClientRect();
+          showTooltip(rect.left + rect.width / 2, rect.top + 30);
+        }}
+        onBlurCapture={hideTooltip}
+      >
         <svg
           viewBox={`0 0 ${width} 450`}
           style={{ width: '100%', height: 450, display: 'block' }}
           role="group"
-          aria-label={`${combined ? 'All measurements on separate normalised scales' : meta.name} timeline with window, room occupancy and smell reports. Use the time slider or event list to inspect.`}
+          tabIndex={0}
+          aria-describedby={tooltip ? `${id}-tooltip` : undefined}
+          onKeyDown={(event) => {
+            if (event.target !== event.currentTarget) return;
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+              event.preventDefault();
+              setSelectedAt(
+                Math.max(start, Math.min(end, at + (event.key === 'ArrowLeft' ? -60000 : 60000))),
+              );
+              const rect = event.currentTarget.getBoundingClientRect();
+              showTooltip(rect.left + rect.width / 2, rect.top + 80);
+            }
+          }}
+          aria-label={`${combined ? 'All measurements on separate normalised scales' : meta.name} timeline with window, room occupancy and smell reports. Hover, tap, or use left and right arrow keys to inspect.`}
           onPointerMove={(e) => {
             if (e.pointerType === 'touch') return;
             const rect = e.currentTarget.getBoundingClientRect();
@@ -622,71 +683,73 @@ export function ReadingChart({
           )}
         </svg>
       </div>
-      <label className="scrubber-label" htmlFor={`${id}-time`}>
-        Inspect a moment <span className="muted">Drag, tap the chart, or use arrow keys</span>
-      </label>
-      <input
-        className="time-scrubber"
-        id={`${id}-time`}
-        type="range"
-        min={0}
-        max={Math.floor((end - start) / 60000)}
-        step={1}
-        value={Math.round((at - start) / 60000)}
-        onChange={(e) => setSelectedAt(start + Number(e.target.value) * 60000)}
-        aria-valuetext={`${localTime(at)}. ${reading ? (combined ? keys : [metric]).map((key) => `${metrics[key].label} ${displayValue(Number(reading[key]))} ${metrics[key].unit}`).join(', ') : 'No reading'}. ${windowText}. ${occupancyText}.`}
-      />
-      <div ref={inspectorRef} className="chart-inspector" aria-label="Selected moment">
-        <div className="inspector-reading">
-          <span className="muted">
-            {localTime(at)} · {timezone}
-          </span>
-          {(combined ? keys : [metric]).map((key) => (
-            <div key={key}>
-              <strong style={combined ? { color: colours[key] } : undefined}>
-                {reading ? displayValue(Number(reading[key])) : '—'}{' '}
-                <small>
-                  {metrics[key].label} {metrics[key].unit}
-                </small>
-              </strong>
-              <MetricBadge metric={key} value={reading ? Number(reading[key]) : null} />
-            </div>
-          ))}
-          {!reading && <span className="muted">No reading within this minute</span>}
-        </div>
-        <div className="inspector-context">
-          <span className={context.window_open ? 'window-active' : ''}>
-            <LuWind aria-hidden="true" />
-            {windowText}
-          </span>
-          <span className={context.user_in_room ? 'presence-active' : ''}>
-            <LuUserRound aria-hidden="true" />
-            {occupancyText}
-          </span>
-        </div>
-        <div className="inspector-reports">
-          {selectedReports.length ? (
-            selectedReports.map((r) => (
-              <div key={r.id}>
-                <span>
-                  <LuMessageCircle aria-hidden="true" />
-                  {r.user_id === userId ? 'You' : 'Site member'} ·{' '}
-                  {r.smell_type || 'Smell reported'} · {r.intensity}/5
-                  <small>{localTime(Date.parse(r.reported_at))}</small>
+      {tooltip &&
+        createPortal(
+          <div
+            id={`${id}-tooltip`}
+            className="chart-hover-tooltip"
+            role="tooltip"
+            style={{ left: tooltip.left, top: tooltip.top }}
+            onPointerEnter={keepTooltip}
+            onPointerLeave={hideTooltip}
+          >
+            <button
+              type="button"
+              className="tooltip-dismiss"
+              aria-label="Close reading details"
+              onClick={() => setTooltip(null)}
+            >
+              ×
+            </button>
+            <div className="chart-inspector" aria-label="Selected moment">
+              <div className="inspector-reading">
+                <span className="muted">
+                  {localTime(at)} · {timezone}
                 </span>
-                {r.note && <p>{r.note}</p>}
+                {(combined ? keys : [metric]).map((key) => (
+                  <div key={key}>
+                    <strong style={combined ? { color: colours[key] } : undefined}>
+                      {reading ? displayValue(Number(reading[key])) : '—'}{' '}
+                      <small>
+                        {metrics[key].label} {metrics[key].unit}
+                      </small>
+                    </strong>
+                    <MetricBadge metric={key} value={reading ? Number(reading[key]) : null} />
+                  </div>
+                ))}
+                {!reading && <span className="muted">No reading within this minute</span>}
               </div>
-            ))
-          ) : (
-            <span className="muted">No smell report at this minute</span>
-          )}
-        </div>
-      </div>
-      <WeatherAtMoment observation={nearestWeather(weather, at)} />
-      <p className="chart-help muted">
-        Window shading and presence tracks show recorded context, not the cause of a peak. Gaps in
-        the line mean missing sensor data.
-      </p>
+              <div className="inspector-context">
+                <span className={context.window_open ? 'window-active' : ''}>
+                  <LuWind aria-hidden="true" />
+                  {windowText}
+                </span>
+                <span className={context.user_in_room ? 'presence-active' : ''}>
+                  <LuUserRound aria-hidden="true" />
+                  {occupancyText}
+                </span>
+              </div>
+              <div className="inspector-reports">
+                {selectedReports.length ? (
+                  selectedReports.map((r) => (
+                    <div key={r.id}>
+                      <span>
+                        <LuMessageCircle aria-hidden="true" />
+                        {r.user_id === userId ? 'You' : 'Site member'} ·{' '}
+                        {r.smell_type || 'Smell reported'} · {r.intensity}/5
+                        <small>{localTime(Date.parse(r.reported_at))}</small>
+                      </span>
+                      {r.note && <p>{r.note}</p>}
+                    </div>
+                  ))
+                ) : (
+                  <span className="muted">No smell report at this minute</span>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
       <details className="timeline-details">
         <summary>
           Explore recorded events{' '}

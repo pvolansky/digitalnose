@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SmellReport } from './types';
 export const smellTypes = ['Restaurant', 'Cooking', 'Smoke', 'Other'] as const;
-export function validateReport(form: FormData) {
+export function validateReport(form: FormData, now = Date.now()) {
   const intensity = Number(form.get('intensity'));
   const note = String(form.get('note') || '').trim();
   const smell_type = String(form.get('smell_type') || '');
@@ -10,7 +10,21 @@ export function validateReport(form: FormData) {
   if (note.length > 1000) throw new Error('Keep your note under 1,000 characters.');
   if (smell_type && !smellTypes.includes(smell_type as (typeof smellTypes)[number]))
     throw new Error('Choose a listed smell type.');
-  return { intensity, note: note || null, smell_type: smell_type || null };
+  const timestamp = String(form.get('reported_at') || '');
+  let reportedAt: string | undefined;
+  if (timestamp) {
+    const value = Date.parse(timestamp);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(timestamp) || !Number.isFinite(value))
+      throw new Error('Choose a valid date and time.');
+    if (value > now) throw new Error('The observation cannot be in the future.');
+    reportedAt = new Date(value).toISOString();
+  }
+  return {
+    ...(reportedAt ? { reported_at: reportedAt } : {}),
+    intensity,
+    note: note || null,
+    smell_type: smell_type || null,
+  };
 }
 export async function loadReports(db: SupabaseClient, siteId: string, limit = 5, before?: string) {
   let query = db
