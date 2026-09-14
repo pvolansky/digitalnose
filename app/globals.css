@@ -725,9 +725,11 @@ footer {
   margin-bottom: 0;
   font-size: 23px;
 }
-.chart-heading .eyebrow {
-  font-size: 10px;
-  margin: 0 0 6px;
+.chart-heading-summary {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 6px 0 0;
+  max-width: 48ch;
   color: var(--muted);
 }
 .chart-description {
@@ -1616,5 +1618,75 @@ footer a {
   .smell-select-options .is-active {
     outline: 2px solid Highlight;
     outline-offset: -2px;
+  }
+}
+
+.history-controls {
+  margin: -4px 0 20px;
+}
+.history-control-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.history-controls button {
+  min-height: 44px;
+}
+.history-custom.is-selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #eef2ff;
+}
+.history-step-controls {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.history-step-controls button {
+  padding: 10px 14px;
+}
+.history-range-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--ink);
+}
+.history-range-caption > span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.history-date-dialog {
+  max-width: 500px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.history-date-dialog input {
+  min-width: 0;
+  width: 100%;
+}
+.history-date-dialog label {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .history-control-row {
+    gap: 8px;
+  }
+  .history-step-controls {
+    margin-left: 0;
+  }
+  .history-controls .chart-filters {
+    width: 100%;
+  }
+  .history-controls .chart-filters > a {
+    flex: 1;
+  }
+  .history-range-caption {
+    line-height: 1.7;
   }
 }

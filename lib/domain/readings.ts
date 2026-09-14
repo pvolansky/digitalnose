@@ -1,3 +1,4 @@
+import { historyWindowError, type HistoryWindow } from './history-window';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Reading } from './types';
 export const ranges = { '6H': 6, '24H': 24, '7D': 168 } as const;
@@ -10,9 +11,11 @@ export async function loadReadings(
   deviceId: string,
   range: Range,
   now = Date.now(),
+  window?: HistoryWindow,
 ) {
-  const start = new Date(now - ranges[range] * 3600000).toISOString();
-  const end = new Date(now).toISOString();
+  if (window && historyWindowError(window, now)) throw new Error('Invalid history window.');
+  const start = new Date(window?.start ?? now - ranges[range] * 3600000).toISOString();
+  const end = new Date(window?.end ?? now).toISOString();
   const rows: Reading[] = [];
   // Supabase defaults to 1,000 rows per response. Page every minute, including the 7D range.
   for (let offset = 0; offset < 11000; offset += 1000) {

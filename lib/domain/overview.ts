@@ -1,3 +1,4 @@
+import { historyWindowError, type HistoryWindow } from './history-window';
 import { loadWeather, type WeatherContext } from '@/lib/weather/read';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadReadings, loadLatestReading, ranges, type Range } from './readings';
@@ -22,12 +23,16 @@ export async function loadOverview(
   deviceId: string | undefined,
   range: Range,
   now: number,
+  window?: HistoryWindow,
 ): Promise<OverviewData> {
+  if (window && historyWindowError(window, now)) throw new Error('Invalid history window.');
+  const start = window?.start ?? now - ranges[range] * 3600000;
+  const end = window?.end ?? now;
   const [readings, latest, timeline, currentEvents, recentReports, heartbeat, weather] =
     await Promise.all([
-      deviceId ? loadReadings(db, deviceId, range, now) : [],
+      deviceId ? loadReadings(db, deviceId, range, now, window) : [],
       deviceId ? loadLatestReading(db, deviceId) : null,
-      loadTimeline(db, siteId, now - ranges[range] * 3600000, now),
+      loadTimeline(db, siteId, start, end),
       loadState(db, siteId),
       loadReports(db, siteId),
       deviceId
@@ -38,7 +43,7 @@ export async function loadOverview(
             .eq('id', deviceId)
             .maybeSingle()
         : { data: null, error: null },
-      loadWeather(db, siteId, now - ranges[range] * 3600000, now),
+      loadWeather(db, siteId, start, end),
     ]);
   if (heartbeat.error) throw new Error('Unable to load device heartbeat.');
   return {

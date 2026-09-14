@@ -1,3 +1,4 @@
+import { parseHistoryWindow } from '@/lib/domain/history-window';
 import { loadOverview } from '@/lib/domain/overview';
 import { Overview } from '@/components/overview';
 import { requestTime } from '@/lib/domain/time';
@@ -10,7 +11,13 @@ import { CreateSite } from '@/components/create-site';
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ site?: string; range?: string; device?: string }>;
+  searchParams: Promise<{
+    site?: string;
+    range?: string;
+    device?: string;
+    from?: string;
+    to?: string;
+  }>;
 }) {
   const params = await searchParams;
   const { db, user, site, sites, devices, role } = await siteContext(params.site);
@@ -23,7 +30,13 @@ export default async function Dashboard({
   const range = parseRange(params.range);
   const device = devices.find((d) => d.id === params.device) || devices[0];
   const now = await requestTime();
-  const [result] = await Promise.allSettled([loadOverview(db, site.id, device?.id, range, now)]);
+  const { window, error: rangeError } = parseHistoryWindow(params.from, params.to, now);
+  const windowQuery = window
+    ? `&from=${encodeURIComponent(new Date(window.start).toISOString())}&to=${encodeURIComponent(new Date(window.end).toISOString())}`
+    : '';
+  const [result] = await Promise.allSettled([
+    loadOverview(db, site.id, device?.id, range, now, window),
+  ]);
   const initialError = result.status === 'rejected';
   const initial =
     result.status === 'fulfilled'
@@ -60,15 +73,21 @@ export default async function Dashboard({
               key={d.id}
               className="tag"
               aria-current={d.id === device?.id ? 'page' : undefined}
-              href={`/dashboard?site=${site.id}&device=${d.id}&range=${range}`}
+              href={`/dashboard?site=${site.id}&device=${d.id}&range=${range}${windowQuery}`}
             >
               {d.name}
             </Link>
           ))}
         </div>
       )}
+      {rangeError && (
+        <p className="sync-notice" role="status">
+          {rangeError} Showing the selected preset.
+        </p>
+      )}
       <Overview
-        key={`${site.id}:${device?.id}:${range}`}
+        window={window}
+        key={`${site.id}:${device?.id}:${range}:${window?.start}:${window?.end}`}
         canEditContext={role === 'owner'}
         initial={initial}
         initialError={initialError}

@@ -1,7 +1,8 @@
 'use client';
 import { useCallback, useState } from 'react';
 import { WeatherCard } from './weather-card';
-import { RangeLink } from './range-link';
+import { HistoryControls } from './history-controls';
+import type { HistoryWindow } from '@/lib/domain/history-window';
 import { LuRefreshCw } from 'react-icons/lu';
 import type { Site, Device } from '@/lib/domain/types';
 import { loadOverview, type OverviewData } from '@/lib/domain/overview';
@@ -19,6 +20,7 @@ export function Overview({
   userId,
   device,
   range,
+  window,
   initialError = false,
   canEditContext = false,
   demo = false,
@@ -28,13 +30,14 @@ export function Overview({
   userId: string;
   device?: Device;
   range: Range;
+  window?: HistoryWindow;
   initialError?: boolean;
   canEditContext?: boolean;
   demo?: boolean;
 }) {
   const load = useCallback(
-    () => loadOverview(browserClient(), site.id, device?.id, range, Date.now()),
-    [site.id, device?.id, range],
+    () => loadOverview(browserClient(), site.id, device?.id, range, Date.now(), window),
+    [site.id, device?.id, range, window],
   );
   const live = useLiveData(initial, load, initialError, !demo);
   const [demoData, setDemoData] = useState(initial);
@@ -77,19 +80,18 @@ export function Overview({
           {device ? 'Reading history' : 'No sensor connected'}
           {!demo && live.updating ? ' · Updating…' : ''}
         </span>
-        {!demo && (
-          <div className="segmented chart-filters" aria-label="Time range">
-            {Object.keys(ranges).map((r) => (
-              <RangeLink
-                key={r}
-                active={range === r}
-                href={`/dashboard?site=${site.id}&device=${device?.id || ''}&range=${r}`}
-                label={r === '6H' ? '6 hours' : r === '24H' ? '24 hours' : '7 days'}
-              />
-            ))}
-          </div>
-        )}
       </div>
+      {!demo && (
+        <HistoryControls
+          range={range}
+          window={window}
+          now={data.now}
+          timezone={site.timezone}
+          siteId={site.id}
+          deviceId={device?.id}
+        />
+      )}
+
       <ReadingChart
         weather={data.weather.history}
         readings={data.readings}
@@ -97,8 +99,8 @@ export function Overview({
         reports={data.reports}
         userId={userId}
         timezone={site.timezone}
-        start={data.now - ranges[range] * 3600000}
-        end={data.now}
+        start={window?.start ?? data.now - ranges[range] * 3600000}
+        end={window?.end ?? data.now}
       />
       <ContextToggles
         canEdit={canEditContext || demo}

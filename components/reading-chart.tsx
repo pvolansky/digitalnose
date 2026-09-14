@@ -236,8 +236,10 @@ export function ReadingChart({
     <section className="panel history-panel" aria-labelledby={`${id}-title`}>
       <div className="row spread chart-heading">
         <div>
-          <p className="eyebrow">The full picture</p>
-          <h2 id={`${id}-title`}>Readings & surroundings</h2>
+          <h2 id={`${id}-title`}>Air readings over time</h2>
+          <p className="chart-heading-summary">
+            Smell reports, room activity and weather alongside sensor readings.
+          </p>
         </div>
         <div className="segmented chart-filters" role="group" aria-label="Chart measurement">
           {Object.entries(metrics).map(([key, value]) => (
