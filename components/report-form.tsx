@@ -2,6 +2,7 @@
 import { useActionState, useRef, useState, useId } from 'react';
 import { LuPlus, LuX, LuLoaderCircle } from 'react-icons/lu';
 import { reportSmell } from '@/app/report/actions';
+import { DateTimeField, localDateTime } from './date-time-field';
 import { SelectField } from './select-field';
 import { SmellTypeSelect } from './smell-type-select';
 export function ReportForm({
@@ -76,20 +77,15 @@ export function ReportForm({
           ]}
           onChange={(value) => {
             setWhen(value);
+            if (value === 'earlier' && !occurredAt) setOccurredAt(localDateTime(Date.now()));
             setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
           }}
         />
         {when === 'earlier' && (
-          <label className="report-observed-at">
-            Date and time
-            <input
-              type="datetime-local"
-              required
-              value={occurredAt}
-              onChange={(event) => setOccurredAt(event.target.value)}
-            />
+          <div className="report-observed-at">
+            <DateTimeField label="Observation time" value={occurredAt} onChange={setOccurredAt} />
             <small className="muted">Your local time ({zone})</small>
-          </label>
+          </div>
         )}
       </div>
       <fieldset className="report-intensity">

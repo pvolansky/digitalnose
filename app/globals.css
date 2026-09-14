@@ -1841,3 +1841,47 @@ footer a {
     width: 76px;
   }
 }
+
+.date-time-field {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+.date-time-field legend {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.date-time-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.date-time-fields label {
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.date-time-fields input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 12px 10px;
+  font-size: 16px;
+  color: var(--ink);
+  background: white;
+}
+.date-time-fields input::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.4em;
+}
+@media (max-width: 360px) {
+  .date-time-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

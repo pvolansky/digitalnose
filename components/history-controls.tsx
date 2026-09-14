@@ -8,12 +8,8 @@ import {
   shiftHistoryWindow,
   type HistoryWindow,
 } from '@/lib/domain/history-window';
+import { DateTimeField, localDateTime as localInput } from './date-time-field';
 import { RangeLink } from './range-link';
-function localInput(timestamp: number) {
-  const date = new Date(timestamp);
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 export function HistoryControls({
   range,
   window,
@@ -163,30 +159,22 @@ export function HistoryControls({
             dialog.current?.close();
           }}
         >
-          <label>
-            From
-            <input
-              type="datetime-local"
-              value={from}
-              required
-              onChange={(event) => {
-                setFrom(event.target.value);
-                setError('');
-              }}
-            />
-          </label>
-          <label>
-            To
-            <input
-              type="datetime-local"
-              value={to}
-              required
-              onChange={(event) => {
-                setTo(event.target.value);
-                setError('');
-              }}
-            />
-          </label>
+          <DateTimeField
+            label="From"
+            value={from}
+            onChange={(value) => {
+              setFrom(value);
+              setError('');
+            }}
+          />
+          <DateTimeField
+            label="To"
+            value={to}
+            onChange={(value) => {
+              setTo(value);
+              setError('');
+            }}
+          />
           {error && (
             <p className="error" role="alert">
               {error}
