@@ -1,3 +1,5 @@
+> Historical setup guide. For the reconciled Phase I release, use [the Phase I cutover runbook](PHASE-I-RECONCILIATION.md). Do not apply the generic installation below to the existing Pi.
+
 # Raspberry Pi reference pipeline
 
 Before installation, read the [warranty, liability and safety notice](../DISCLAIMER.md). Follow component manufacturers’ electrical and installation instructions; this project is not a safety alarm.

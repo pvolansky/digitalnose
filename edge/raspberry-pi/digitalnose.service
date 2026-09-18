@@ -1,8 +1,6 @@
 [Unit]
-Description=Digital Nose Phase I sync
+Description=Digital Nose Phase I collector
 After=local-fs.target time-sync.target
-Wants=network-online.target
-After=network-online.target
 
 [Service]
 Type=simple
@@ -10,9 +8,9 @@ User=diginose
 SupplementaryGroups=i2c
 WorkingDirectory=/home/diginose/digital-nose
 EnvironmentFile=/etc/digitalnose.env
-ExecStart=/home/diginose/digital-nose/phase1-current/.venv/bin/python -u /home/diginose/digital-nose/phase1-current/sync.py
+ExecStart=/home/diginose/digital-nose/phase1-current/.venv/bin/python -u /home/diginose/digital-nose/phase1-current/collector.py
 Restart=always
-RestartSec=10
+RestartSec=5
 UMask=0077
 NoNewPrivileges=true
 

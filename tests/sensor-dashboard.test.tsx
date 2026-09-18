@@ -158,7 +158,7 @@ test('partial gas/PM series preserve zero measurements, extrema and missing buck
   for (const metric of ['pm1_ug_m3', 'pm2_5_ug_m3', 'pm4_ug_m3', 'pm10_ug_m3'])
     assert.ok(pm.includes(metric));
 });
-test('query errors are isolated from ENS160 and inspection exposes loading state', async () => {
+test('query errors are isolated from ENS160 and sensor refresh avoids duplicate inspection', async () => {
   const db = {
     rpc: async () => ({ data: null, error: { message: 'offline' } }),
   } as unknown as SupabaseClient;
@@ -188,9 +188,9 @@ test('query errors are isolated from ENS160 and inspection exposes loading state
       onRetry={() => {}}
     />,
   );
-  assert.ok(loading.includes('Loading nearby reading'));
+  assert.ok(!loading.includes('Inspect selected moment'));
   assert.ok(loading.includes('Updating…'));
-  assert.ok(loading.includes('No nearby reading'));
+  assert.ok(!loading.includes('No nearby reading'));
 });
 
 test('an invalid observation cannot inherit LIVE from an earlier valid reading', () => {

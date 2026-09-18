@@ -1,29 +1,23 @@
-"""Collect at most one raw reading per UTC five-second slot."""
+"""Collect Phase I observations, retaining diagnostic validity information."""
 import logging
 import sqlite3
 import time
-from database import connect
-from sensor import Sensor
-
+from database import connect,insert_reading,utc
+from sensor import RecoveringSensor
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    db = connect()
-    sensor = Sensor()
+    logging.basicConfig(level=logging.INFO)
+    db=connect()
+    sensor=RecoveringSensor()
     try:
         while True:
-            slot = int(time.time()) // 5 * 5
-            try:
-                reading = sensor.read()
-                if reading is not None:
-                    with db:
-                        db.execute("INSERT OR IGNORE INTO sensor_readings VALUES (?, ?, ?, ?)", (slot, *reading))
-            except (OSError, sqlite3.Error):
-                logging.exception("Sensor read or local storage failed")
-            time.sleep(max(0.1, 5 - time.time() % 5))
+            observation=sensor.observe()
+            if observation is not None:
+                try: insert_reading(db,utc(time.time()),observation)
+                except sqlite3.Error: logging.exception('Phase I local persistence failed')
+            time.sleep(max(.1,5-time.time()%5))
     finally:
         sensor.close()
         db.close()
 
-if __name__ == "__main__":
-    main()
+if __name__=='__main__': main()

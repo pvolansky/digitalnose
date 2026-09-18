@@ -4,18 +4,14 @@ import { browserClient } from '@/lib/supabase/client';
 import {
   sensorHealth,
   loadSensorArray,
-  loadNearestSensors,
-  INSPECTION_TOLERANCE_SECONDS,
   type SensorArrayData,
   type Sensor,
   type Bucket,
-  type Nearby,
 } from '@/lib/sensors/data';
 import { bucketGroups, metricLabels } from '@/lib/sensors/charts';
 import type { Reading, SmellReport, StateEvent } from '@/lib/domain/types';
-import { contextAt, stateIntervals, isMaintenanceMinute } from '@/lib/domain/timeline';
+import { stateIntervals } from '@/lib/domain/timeline';
 import type { WeatherObservation } from '@/lib/weather/types';
-import { windDescription } from '@/lib/weather/context';
 const colours = ['#4265d6', '#168078', '#b54880', '#b46a24'];
 function display(value: number) {
   return value.toLocaleString('en-GB', { maximumFractionDigits: 2 });
@@ -290,10 +286,7 @@ export function SensorPlot({
 }
 export function SensorAnalysis({
   data,
-  deviceId,
   now,
-  readings,
-  weather,
   updating,
   refreshError = false,
   particulateControls,
@@ -310,30 +303,6 @@ export function SensorAnalysis({
   particulateControls?: ReactNode;
   onRetry: () => void;
 }) {
-  const [inspection, setInspection] = useState<{
-    at: number;
-    rows: Nearby[];
-    error: boolean;
-  } | null>(null);
-  useEffect(() => {
-    if (shared.selectedAt === null || !deviceId) return;
-    const at = shared.selectedAt;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      void Promise.resolve()
-        .then(() => loadNearestSensors(browserClient(), deviceId, at))
-        .then((rows) => {
-          if (!cancelled) setInspection({ at, rows, error: false });
-        })
-        .catch(() => {
-          if (!cancelled) setInspection({ at, rows: [], error: true });
-        });
-    }, 200);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [shared.selectedAt, deviceId, now]);
   if (!data)
     return (
       <section className="panel" aria-label="Sensor analysis" aria-busy="true">
@@ -374,33 +343,6 @@ export function SensorAnalysis({
     sgp = ofType('sgp41'),
     sps = ofType('sps30');
   const primary = bme.find((s) => s.metadata.environment_primary === true) ?? bme[0];
-  const at = shared.selectedAt;
-  const context = at !== null ? contextAt(shared.events, at) : null;
-  const ens =
-    at === null
-      ? undefined
-      : readings
-          .filter(
-            (r) =>
-              Math.abs(Date.parse(r.minute_start_utc) - at) <= 60000 &&
-              !isMaintenanceMinute(shared.events, Date.parse(r.minute_start_utc)),
-          )
-          .sort(
-            (a, b) =>
-              Math.abs(Date.parse(a.minute_start_utc) - at) -
-              Math.abs(Date.parse(b.minute_start_utc) - at),
-          )[0];
-  const nearbyWeather =
-    at === null
-      ? undefined
-      : weather
-          .filter((w) => Math.abs(Date.parse(w.observed_at_utc) - at) <= 15 * 60000)
-          .sort(
-            (a, b) =>
-              Math.abs(Date.parse(a.observed_at_utc) - at) -
-              Math.abs(Date.parse(b.observed_at_utc) - at),
-          )[0];
-  const maintenance = at !== null && isMaintenanceMinute(shared.events, at);
   return (
     <section className="panel sensor-analysis" aria-label="Sensor analysis" aria-busy={updating}>
       <div className="row spread">
@@ -470,7 +412,10 @@ export function SensorAnalysis({
         initialHiddenMetrics={['pm1_ug_m3', 'pm4_ug_m3', 'pm10_ug_m3']}
         controls={
           <div className="particulate-controls">
-            <p className="muted">PM2.5 is shown first. Select additional particle sizes to compare. Time controls apply to all charts.</p>
+            <p className="muted">
+              PM2.5 is shown first. Select additional particle sizes to compare. Time controls apply
+              to all charts.
+            </p>
             {particulateControls}
           </div>
         }
@@ -485,133 +430,6 @@ export function SensorAnalysis({
         independently identified.
       </p>
       <EnvironmentPlots {...shared} points={data.points} sensors={bme} primary={primary} />
-      <details className="timeline-details">
-        <summary>Chart aggregation details</summary>
-        <p>
-          Bucket width: {data.bucket_seconds} seconds. Raw observations retain their original
-          timestamps, validity and heater settings. Buckets may span heater settings; use raw
-          inspection for acquisition details. Empty buckets are not filled. Maintenance observations
-          are excluded from these plots but retained in storage.
-        </p>
-      </details>
-      <section className="sensor-inspection" aria-label="Inspect a moment">
-        <h3>Inspect a moment · all sensors</h3>
-        {at === null ? (
-          <p className="muted">
-            Select a moment on any chart, including the existing air readings chart.
-          </p>
-        ) : (
-          <>
-            <p>
-              {local(at, shared.timezone)} · nearest valid observation within ±
-              {INSPECTION_TOLERANCE_SECONDS} seconds.{' '}
-              {maintenance ? 'Maintenance · measurements excluded from interpretation.' : ''}
-            </p>
-            <div className="sensor-status-grid">
-              <div>
-                <strong>ENS160 · one-minute aggregate</strong>
-                <p>
-                  {ens && !maintenance
-                    ? `TVOC ${ens.tvoc_mean} ppb · eCO₂ ${ens.eco2_mean} ppm · AQI ${ens.aqi_max}`
-                    : 'No nearby reading'}
-                </p>
-                {ens && (
-                  <small>
-                    {ens.minute_start_utc} · Δ{' '}
-                    {((Date.parse(ens.minute_start_utc) - at) / 1000).toFixed(3)} s
-                  </small>
-                )}
-              </div>
-              {data.sensors
-                .filter((s) => s.sensor_type !== 'ens160')
-                .map((s) => {
-                  const row =
-                    inspection?.at === at
-                      ? inspection.rows.find((r) => r.sensor_id === s.id)
-                      : undefined;
-                  const observation = row?.observation;
-                  return (
-                    <div key={s.id}>
-                      <strong>{s.label}</strong>
-                      {inspection?.at !== at ? (
-                        <p role="status">Loading nearby reading…</p>
-                      ) : inspection.error ? (
-                        <p role="alert">
-                          Inspection unavailable. Select the moment again or retry updates.
-                        </p>
-                      ) : !observation ? (
-                        <p className="muted">No nearby reading</p>
-                      ) : (
-                        <>
-                          <small>
-                            {observation.observed_at} · Δ{' '}
-                            {((Date.parse(observation.observed_at) - at) / 1000).toFixed(3)} s
-                          </small>
-                          {Object.entries(observation.readings)
-                            .filter(([k]) => !k.startsWith('number_'))
-                            .map(([key, value]) => (
-                              <p key={key}>
-                                {metricLabels[key]?.label ?? key}:{' '}
-                                {value === null
-                                  ? 'Not available'
-                                  : `${display(value)} ${metricLabels[key]?.unit ?? ''}`}
-                              </p>
-                            ))}
-                          <details>
-                            <summary>Acquisition and particle details</summary>
-                            {Object.entries(observation.readings)
-                              .filter(([k]) => k.startsWith('number_'))
-                              .map(([key, value]) => (
-                                <p key={key}>
-                                  {metricLabels[key]?.label ?? key}:{' '}
-                                  {value === null ? 'Not available' : `${display(value)} #/cm³`}
-                                </p>
-                              ))}
-                            <pre>
-                              {JSON.stringify(
-                                { acquisition: observation.acquisition, derived: row?.derived },
-                                null,
-                                2,
-                              )}
-                            </pre>
-                          </details>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-            <p className="muted">
-              Window:{' '}
-              {context?.window_open === undefined
-                ? 'Not recorded'
-                : context.window_open
-                  ? 'Open'
-                  : 'Closed'}{' '}
-              · Resident:{' '}
-              {context?.user_in_room === undefined
-                ? 'Not recorded'
-                : context.user_in_room
-                  ? 'Present'
-                  : 'Absent'}
-            </p>
-            {shared.reports
-              .filter((r) => Math.abs(Date.parse(r.reported_at) - at) <= 60000)
-              .map((r) => (
-                <p key={r.id}>
-                  {r.smell_type || 'Smell report'} · {r.intensity}/5 ·{' '}
-                  {local(Date.parse(r.reported_at), shared.timezone)}
-                </p>
-              ))}
-            <p className="muted">
-              Weather:{' '}
-              {nearbyWeather
-                ? `${windDescription(nearbyWeather)} · ${nearbyWeather.observed_at_utc}`
-                : 'No nearby weather observation (±15 minutes)'}
-            </p>
-          </>
-        )}
-      </section>
     </section>
   );
 }
@@ -651,7 +469,7 @@ export function LiveSensorAnalysis(
   props: Omit<
     Parameters<typeof SensorAnalysis>[0],
     'data' | 'updating' | 'onRetry' | 'refreshError'
-  >,
+  > & { onSensors?: (sensors: Sensor[]) => void },
 ) {
   const [retry, setRetry] = useState(0);
   const key = `${props.deviceId}:${props.start}:${props.end}:${retry}`;
@@ -696,6 +514,11 @@ export function LiveSensorAnalysis(
     };
   }, [deviceId, start, end, key]);
   const current = result?.deviceId === deviceId ? result : null;
+  const onSensors = props.onSensors;
+  const sensors = current?.data.sensors;
+  useEffect(() => {
+    onSensors?.(sensors ?? []);
+  }, [onSensors, sensors]);
   return (
     <SensorAnalysis
       {...props}

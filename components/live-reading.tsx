@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
-import { MetricBadge, MetricInfo } from './metric-info';
+import { MetricBadge, MetricInfo, InfoTooltip } from './metric-info';
 import { getDeviceHealth, healthTimeAgo } from '@/lib/domain/device-health';
+import { particulateRating } from '@/lib/domain/particulate-quality';
+import { sensorHealth, type Sensor } from '@/lib/sensors/data';
 import type { Reading } from '@/lib/domain/types';
 export function LiveReading({
   reading,
@@ -10,6 +12,8 @@ export function LiveReading({
   demo = false,
   maintenance = false,
   syncStatus,
+  particulate,
+  showParticulate = false,
 }: {
   reading: Reading | null;
   lastSeenAt: string | null;
@@ -17,6 +21,8 @@ export function LiveReading({
   demo?: boolean;
   maintenance?: boolean;
   syncStatus?: ReactNode;
+  particulate?: Sensor;
+  showParticulate?: boolean;
 }) {
   const [now, setNow] = useState(initialNow);
   useEffect(() => {
@@ -29,6 +35,13 @@ export function LiveReading({
     latestAggregateAt: reading?.minute_start_utc,
     now: clock,
   });
+  const pm = particulate?.latest_observation;
+  const pmValue = pm?.valid && pm.status === 'ok' ? pm.readings.pm2_5_ug_m3 : null;
+  const pmHealth = particulate
+    ? sensorHealth(particulate, clock).replaceAll('_', ' ')
+    : 'AWAITING DATA';
+  const pmRating = particulateRating(pmValue);
+  const pmCurrent = pmHealth === 'LIVE' && !maintenance;
   return (
     <section className="panel">
       <div className="reading-status-row">
@@ -60,7 +73,7 @@ export function LiveReading({
           Measurements are excluded during maintenance.
         </p>
       )}
-      <div className="metrics">
+      <div className={`metrics${showParticulate ? ' metrics-with-pm' : ''}`}>
         {[
           ['TVOC', reading?.tvoc_mean, 'ppb', 'tvoc_mean'],
           ['eCO₂', reading?.eco2_mean, 'ppm', 'eco2_mean'],
@@ -97,6 +110,39 @@ export function LiveReading({
             )}
           </div>
         ))}
+        {showParticulate && (
+          <div>
+            <p className="muted" style={{ fontSize: 14 }}>
+              PM2.5 · SPS30
+              <InfoTooltip
+                label="PM2.5 colours"
+                description="Defra-based bands (µg/m³): <36 low · 36–<54 moderate · 54–<71 high · ≥71 very high. Colours compare the latest reading; official UK ratings use a 24-hour mean. Low does not mean risk-free."
+              />
+            </p>
+            <div>
+              <span className="metric-value">
+                {maintenance || pmValue == null || !Number.isFinite(pmValue)
+                  ? '—'
+                  : pmValue.toLocaleString('en-GB', { maximumFractionDigits: 1 })}
+              </span>
+              <span className="muted" style={{ marginLeft: 10, fontSize: 15 }}>
+                µg/m³
+              </span>
+            </div>
+            <span className={`quality-badge quality-${pmCurrent ? pmRating.tone : 'neutral'}`}>
+              <i aria-hidden="true" />
+              {maintenance ? 'Excluded' : pmCurrent ? pmRating.label : pmHealth}
+            </span>
+            <p className="muted" style={{ fontSize: 12 }}>
+              Recent reading · not a 24-hour rating
+            </p>
+            {pm && (
+              <p className="muted" style={{ fontSize: 12 }}>
+                {healthTimeAgo(pm.observed_at, clock)}
+              </p>
+            )}
+          </div>
+        )}
       </div>
       <p className="health-detail muted">
         Device last seen {healthTimeAgo(lastSeenAt, clock).toLowerCase()} · Last valid sensor

@@ -1,4 +1,5 @@
 'use client';
+import type { Sensor } from '@/lib/sensors/data';
 import { LiveSensorAnalysis } from './sensor-analysis';
 import { useCallback, useState } from 'react';
 import { WeatherCard } from './weather-card';
@@ -43,6 +44,7 @@ export function Overview({
     [site.id, device?.id, range, window],
   );
   const live = useLiveData(initial, load, initialError, !demo);
+  const [sensors, setSensors] = useState<Sensor[]>([]);
   const [selectedMoment, setSelectedMoment] = useState<number | null>(null);
   const [demoData, setDemoData] = useState(initial);
   const data = demo ? demoData : live.data;
@@ -61,6 +63,10 @@ export function Overview({
         </div>
       )}
       <LiveReading
+        particulate={sensors.find(
+          (s) => s.device_id === device?.id && s.sensor_type === 'sps30' && s.enabled,
+        )}
+        showParticulate={!demo && !!device}
         lastSeenAt={data.lastSeenAt}
         reading={data.latest}
         maintenance={
@@ -142,6 +148,7 @@ export function Overview({
       <RecentReports reports={data.recentReports} timezone={site.timezone} />
       {!demo && (
         <LiveSensorAnalysis
+          onSensors={setSensors}
           particulateControls={
             <HistoryControls
               range={range}

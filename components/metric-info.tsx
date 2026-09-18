@@ -20,6 +20,9 @@ export function MetricBadge({
   );
 }
 export function MetricInfo({ metric, label }: { metric: Metric; label: string }) {
+  return <InfoTooltip label={label} description={metricInfo[metric]} />;
+}
+export function InfoTooltip({ label, description }: { label: string; description: string }) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ left: 16, top: 16 });
   const ref = useRef<HTMLSpanElement>(null);
@@ -84,7 +87,7 @@ export function MetricInfo({ metric, label }: { metric: Metric; label: string })
           onMouseEnter={() => clearTimeout(timer.current)}
         >
           <strong>{label}</strong>
-          <span>{metricInfo[metric]}</span>
+          <span>{description}</span>
         </span>
       )}
     </span>

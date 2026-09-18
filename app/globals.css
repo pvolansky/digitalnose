@@ -1931,3 +1931,22 @@ footer a {
 .particulate-controls > p { font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
 .sensor-plot:has(.particulate-controls) .sensor-svg { height: 310px; }
 .sensor-plot:has(.particulate-controls) .sensor-legend { gap: 10px; margin-bottom: 12px; }
+
+.metrics.metrics-with-pm {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 760px) {
+  .metrics.metrics-with-pm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 24px;
+  }
+  .metrics-with-pm > div:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+.quality-purple {
+  color: #75309a;
+  background: #f3eaf8;
+}
