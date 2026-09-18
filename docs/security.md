@@ -39,3 +39,7 @@ Profile records are created by a trigger on `auth.users`, and existing Auth user
 ## Verification coverage
 
 `tests/schema.test.ts` executes the real schema in PostgreSQL (PGlite), creates owner/resident/stranger roles, and verifies membership visibility, forged-author rejection, device/key restrictions, owner preservation, revoked keys, cross-site sensor isolation and duplicate ingestion. TypeScript tests exercise payload limits, numeric validation, UTC timestamps, chart gaps and per-user occupancy. Pi tests cover incomplete minutes, long gaps, retries after lost acknowledgements and bounded batches.
+
+## Phase II sensor array
+
+The new `sensors`, `sensor_observations` and `sensor_derived_values` tables all enable RLS. Registry/telemetry reads inherit site membership through the existing collector device. Owners may register the planned array and update explicitly granted configuration columns; observation writes are service-only. The `/api/ingest/sensors` endpoint bounds JSON to 16 KiB, validates the versioned contract and reuses the existing collector key. Its atomic RPC verifies sensor-to-collector association and rejects disabled/unknown/mismatched sensors. Exact retries are idempotent; changed retry content is a conflict. Query RPCs are security invoker and respect caller RLS. Full details are in [the Phase II report](phase-ii.md).

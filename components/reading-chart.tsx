@@ -14,7 +14,7 @@ import { degreesToCompass, oppositeBearing } from '@/lib/weather/wind';
 import { weatherValue, windDescription } from '@/lib/weather/context';
 import type { WeatherObservation } from '@/lib/weather/types';
 import { splitReadingGaps } from '@/lib/domain/readings';
-import { contextAt, stateIntervals } from '@/lib/domain/timeline';
+import { contextAt, stateIntervals, isMaintenanceMinute } from '@/lib/domain/timeline';
 const metrics = {
   tvoc_mean: {
     label: 'TVOC',
@@ -44,6 +44,8 @@ export function ReadingChart({
   reports = [],
   userId = '',
   weather = [],
+  selectedMoment,
+  onSelectMoment,
 }: {
   readings: Reading[];
   timezone: string;
@@ -53,6 +55,8 @@ export function ReadingChart({
   reports?: SmellReport[];
   userId?: string;
   weather?: WeatherObservation[];
+  selectedMoment?: number | null;
+  onSelectMoment?: (at: number) => void;
 }) {
   const [view, setView] = useState<keyof typeof metrics | 'combined'>('tvoc_mean');
   const renderedView = useDeferredValue(view);
@@ -61,12 +65,20 @@ export function ReadingChart({
   const switching = view !== renderedView;
   const colours = { tvoc_mean: '#4265d6', eco2_mean: '#168078', aqi_max: '#b54880' };
   const keys = Object.keys(metrics) as (keyof typeof metrics)[];
+  const validReadings = useMemo(
+    () => readings.filter((row) => !isMaintenanceMinute(events, Date.parse(row.minute_start_utc))),
+    [readings, events],
+  );
+  const maintenanceIntervals = useMemo(
+    () => stateIntervals(events, 'maintenance', start, end).filter((s) => s.value === true),
+    [events, start, end],
+  );
   const peaks = useMemo(
     () =>
       Object.fromEntries(
         Object.keys(metrics).map((key) => [
           key,
-          readings.reduce<Reading | undefined>(
+          validReadings.reduce<Reading | undefined>(
             (best, row) =>
               !best || row[key as keyof typeof metrics] > best[key as keyof typeof metrics]
                 ? row
@@ -75,7 +87,7 @@ export function ReadingChart({
           ),
         ]),
       ) as Record<keyof typeof metrics, Reading | undefined>,
-    [readings],
+    [validReadings],
   );
   const scales = useMemo(
     () => ({
@@ -85,8 +97,13 @@ export function ReadingChart({
     }),
     [peaks],
   );
-  const groups = useMemo(() => splitReadingGaps(readings), [readings]);
-  const [selectedAt, setSelectedAt] = useState<number | null>(null);
+  const groups = useMemo(() => splitReadingGaps(validReadings), [validReadings]);
+  const [localSelectedAt, setLocalSelectedAt] = useState<number | null>(null);
+  const selectedAt = selectedMoment ?? localSelectedAt;
+  const setSelectedAt = (at: number) => {
+    setLocalSelectedAt(at);
+    onSelectMoment?.(at);
+  };
   const chartRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(980);
   const id = useId();
@@ -155,7 +172,7 @@ export function ReadingChart({
       selectedAt ?? (readings.at(-1) ? Date.parse(readings.at(-1)!.minute_start_utc) : end),
     ),
   );
-  const nearest = readings.reduce<Reading | undefined>(
+  const nearest = validReadings.reduce<Reading | undefined>(
     (best, r) =>
       !best ||
       Math.abs(Date.parse(r.minute_start_utc) - at) <
@@ -165,7 +182,11 @@ export function ReadingChart({
     undefined,
   );
   const reading =
-    nearest && Math.abs(Date.parse(nearest.minute_start_utc) - at) <= 60000 ? nearest : undefined;
+    !isMaintenanceMinute(events, at) &&
+    nearest &&
+    Math.abs(Date.parse(nearest.minute_start_utc) - at) <= 60000
+      ? nearest
+      : undefined;
   const context = contextAt(events, at);
   const windowText =
     context.window_open === undefined
@@ -341,8 +362,16 @@ export function ReadingChart({
           </span>
         )}
         <span>
+          <i className="legend-maintenance" />
+          Maintenance
+        </span>
+        <span>
           <i className="legend-window" />
           Window open
+        </span>
+        <span>
+          <i className="legend-window-closed" />
+          Window closed
         </span>
         <span>
           <i className="legend-presence" />
@@ -431,7 +460,7 @@ export function ReadingChart({
             </linearGradient>
           </defs>
           {windowIntervals
-            .filter((s) => s.value === true)
+            .filter((s) => s.value !== undefined)
             .map((s) => (
               <rect
                 key={s.start}
@@ -439,9 +468,23 @@ export function ReadingChart({
                 y="30"
                 width={Math.max(0, x(s.end) - x(s.start))}
                 height="188"
-                fill="var(--window-fill)"
-              />
+                fill={s.value ? 'var(--window-fill)' : 'var(--window-closed-fill)'}
+              >
+                <title>{s.value ? 'Window open' : 'Window closed'}</title>
+              </rect>
             ))}
+          {maintenanceIntervals.map((s) => (
+            <rect
+              key={`maintenance-${s.start}`}
+              x={x(s.start)}
+              y="30"
+              width={Math.max(0, x(s.end) - x(s.start))}
+              height="188"
+              fill="#e7e9ee"
+            >
+              <title>Maintenance · measurements excluded</title>
+            </rect>
+          ))}
           {(metric === 'aqi_max' ? [0, 0.2, 0.4, 0.6, 0.8, 1] : [0, 0.25, 0.5, 0.75, 1]).map(
             (f) => (
               <g key={f}>
@@ -570,7 +613,9 @@ export function ReadingChart({
                         ? index
                           ? 'var(--presence-color)'
                           : 'var(--window-color)'
-                        : 'var(--inactive-fill)'
+                        : index
+                          ? 'var(--inactive-fill)'
+                          : 'var(--window-closed-color)'
                   }
                 />
               ))}
@@ -714,10 +759,20 @@ export function ReadingChart({
                         {metrics[key].label} {metrics[key].unit}
                       </small>
                     </strong>
-                    <MetricBadge metric={key} value={reading ? Number(reading[key]) : null} />
+                    {isMaintenanceMinute(events, at) ? (
+                      <span className="quality-badge quality-neutral">Excluded</span>
+                    ) : (
+                      <MetricBadge metric={key} value={reading ? Number(reading[key]) : null} />
+                    )}
                   </div>
                 ))}
-                {!reading && <span className="muted">No reading within this minute</span>}
+                {!reading && (
+                  <span className="muted">
+                    {isMaintenanceMinute(events, at)
+                      ? 'Maintenance · measurement excluded'
+                      : 'No reading within this minute'}
+                  </span>
+                )}
               </div>
               <div className="inspector-context">
                 <span className={context.window_open ? 'window-active' : ''}>
@@ -772,13 +827,17 @@ export function ReadingChart({
                 id: e.id,
                 time: e.recorded_at,
                 label:
-                  e.event_type === 'window_open'
+                  e.event_type === 'maintenance'
                     ? e.value
-                      ? 'Window opened'
-                      : 'Window closed'
-                    : e.value
-                      ? 'Resident entered the room'
-                      : 'Resident left the room',
+                      ? 'Maintenance started'
+                      : 'Maintenance ended'
+                    : e.event_type === 'window_open'
+                      ? e.value
+                        ? 'Window opened'
+                        : 'Window closed'
+                      : e.value
+                        ? 'Resident entered the room'
+                        : 'Resident left the room',
                 kind: e.event_type,
               })),
           ]
@@ -820,9 +879,21 @@ export function ReadingChart({
                   .map((r) => (
                     <tr key={r.id}>
                       <td>{localTime(Date.parse(r.minute_start_utc))}</td>
-                      <td>{r.tvoc_mean}</td>
-                      <td>{r.eco2_mean}</td>
-                      <td>{r.aqi_max}</td>
+                      <td>
+                        {isMaintenanceMinute(events, Date.parse(r.minute_start_utc))
+                          ? 'Maintenance'
+                          : r.tvoc_mean}
+                      </td>
+                      <td>
+                        {isMaintenanceMinute(events, Date.parse(r.minute_start_utc))
+                          ? '—'
+                          : r.eco2_mean}
+                      </td>
+                      <td>
+                        {isMaintenanceMinute(events, Date.parse(r.minute_start_utc))
+                          ? '—'
+                          : r.aqi_max}
+                      </td>
                       <td>{r.sample_count}/12</td>
                     </tr>
                   ))}

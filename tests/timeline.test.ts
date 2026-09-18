@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { contextAt, stateIntervals, loadTimeline } from '../lib/domain/timeline';
+import {
+  contextAt,
+  stateIntervals,
+  loadTimeline,
+  isMaintenanceMinute,
+} from '../lib/domain/timeline';
 import type { StateEvent } from '../lib/domain/types';
 const event = (
   id: string,
@@ -23,7 +28,11 @@ test('timeline carries state into the range, keeps unknowns and shares room occu
     event('3', 'user_in_room', true, 20, 'other'),
     event('4', 'user_in_room', true, 60),
   ];
-  assert.deepEqual(contextAt(events, 30), { window_open: true, user_in_room: true });
+  assert.deepEqual(contextAt(events, 30), {
+    window_open: true,
+    user_in_room: true,
+    maintenance: undefined,
+  });
   assert.deepEqual(stateIntervals(events, 'window_open', 30, 80), [
     { start: 30, end: 40, value: true },
     { start: 40, end: 80, value: false },
@@ -71,4 +80,21 @@ test('timeline fetch includes prior context and all report pages', async () => {
   assert.ok(timeline.events.some((e) => e.id === 'seed'));
   assert.ok(!filters.some((filter) => filter.startsWith('user_id:')));
   assert.ok(!filters.some((filter) => filter.includes('user_id.eq')));
+});
+
+test('maintenance excludes overlapping minutes, carries prior state and ends at the boundary', () => {
+  const events = [
+    event('m1', 'maintenance', true, 90000),
+    event('m2', 'maintenance', false, 180000),
+  ];
+  assert.equal(isMaintenanceMinute(events, 0), false);
+  assert.equal(isMaintenanceMinute(events, 60000), true);
+  assert.equal(isMaintenanceMinute(events, 120000), true);
+  assert.equal(isMaintenanceMinute(events, 180000), false);
+  assert.deepEqual(stateIntervals(events, 'maintenance', 120000, 240000), [
+    { start: 120000, end: 180000, value: true },
+    { start: 180000, end: 240000, value: false },
+  ]);
+  assert.equal(isMaintenanceMinute([events[0]], 600000), true);
+  assert.equal(isMaintenanceMinute([], 600000), false);
 });

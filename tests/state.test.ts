@@ -2,7 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { currentState } from '../lib/domain/site-state';
 test('occupancy is shared; unrecorded state is unknown', () => {
-  assert.deepEqual(currentState([]), { window_open: undefined, user_in_room: undefined });
+  assert.deepEqual(currentState([]), {
+    window_open: undefined,
+    user_in_room: undefined,
+    maintenance: undefined,
+  });
   assert.equal(
     currentState([
       {

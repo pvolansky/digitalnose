@@ -1,0 +1,26 @@
+[Unit]
+Description=Digital Nose Phase II acquire (%i)
+After=local-fs.target time-sync.target network.target
+
+[Service]
+Type=simple
+User=diginose
+SupplementaryGroups=i2c dialout
+WorkingDirectory=/home/diginose/digital-nose
+EnvironmentFile=/etc/digitalnose/sensors.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/diginose/digital-nose/.venv-phase2/bin/python -m phase2 --config /etc/digitalnose/sensors.json collect %i
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+KillSignal=SIGTERM
+StateDirectory=digitalnose/phase2
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/lib/digitalnose/phase2
+
+[Install]
+WantedBy=multi-user.target

@@ -8,12 +8,14 @@ export function LiveReading({
   lastSeenAt,
   initialNow,
   demo = false,
+  maintenance = false,
   syncStatus,
 }: {
   reading: Reading | null;
   lastSeenAt: string | null;
   initialNow: number;
   demo?: boolean;
+  maintenance?: boolean;
   syncStatus?: ReactNode;
 }) {
   const [now, setNow] = useState(initialNow);
@@ -35,7 +37,7 @@ export function LiveReading({
             className={`health-dot${health.state === 'live' && !demo ? ' health-dot-live' : ''}`}
             aria-hidden="true"
           />
-          {demo ? 'Demo readings' : health.headline}
+          {maintenance ? 'Maintenance' : demo ? 'Demo readings' : health.headline}
         </p>
         {syncStatus}
       </div>
@@ -53,6 +55,11 @@ export function LiveReading({
           <dd>{healthTimeAgo(reading?.minute_start_utc, clock)}</dd>
         </div>
       </dl>
+      {maintenance && (
+        <p className="muted" role="status">
+          Measurements are excluded during maintenance.
+        </p>
+      )}
       <div className="metrics">
         {[
           ['TVOC', reading?.tvoc_mean, 'ppb', 'tvoc_mean'],
@@ -69,7 +76,7 @@ export function LiveReading({
             </p>
             <div>
               <span className="metric-value">
-                {value == null
+                {maintenance || value == null
                   ? '—'
                   : Number(value).toLocaleString('en-GB', { maximumFractionDigits: 1 })}
               </span>
@@ -77,10 +84,10 @@ export function LiveReading({
                 {unit}
               </span>
             </div>
-            {health.state !== 'live' && !demo ? (
+            {maintenance || (health.state !== 'live' && !demo) ? (
               <span className="quality-badge quality-neutral">
                 <i aria-hidden="true" />
-                {health.badgeLabel}
+                {maintenance ? 'Excluded' : health.badgeLabel}
               </span>
             ) : (
               <MetricBadge

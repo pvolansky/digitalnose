@@ -42,6 +42,7 @@ test('report names expose only display names for same-site reports, never other 
       readFileSync('supabase/migrations/202609120007_report_display_names.sql', 'utf8'),
     );
     await db.exec(readFileSync('supabase/migrations/202609130001_owner_context.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/202609170001_maintenance.sql', 'utf8'));
     const owner = '00000000-0000-4000-8000-000000000001',
       resident = '00000000-0000-4000-8000-000000000002',
       stranger = '00000000-0000-4000-8000-000000000003';
@@ -62,7 +63,7 @@ test('report names expose only display names for same-site reports, never other 
     ]);
     const report = (await db.query<{ id: string }>('select id from public.smell_reports')).rows[0]
       .id;
-    for (const type of ['window_open', 'user_in_room']) {
+    for (const type of ['window_open', 'user_in_room', 'maintenance']) {
       await db.query(
         'insert into public.site_state_events(site_id,user_id,event_type,value) values($1,$2,$3,true)',
         [site, owner, type],
@@ -74,8 +75,8 @@ test('report names expose only display names for same-site reports, never other 
       [site, resident, 'user_in_room'],
     );
     await login(resident);
-    assert.equal((await db.query('select * from public.site_state_events')).rows.length, 2);
-    for (const type of ['window_open', 'user_in_room']) {
+    assert.equal((await db.query('select * from public.site_state_events')).rows.length, 3);
+    for (const type of ['window_open', 'user_in_room', 'maintenance']) {
       await assert.rejects(
         db.query(
           'insert into public.site_state_events(site_id,user_id,event_type,value) values($1,$2,$3,false)',

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "i2c_bus": 1,
+  "mux_address": 112,
+  "mux_lock": "/var/lib/digitalnose/phase2/mux.lock",
+  "state_dir": "/var/lib/digitalnose/phase2",
+  "compensation_source": "bme690_01",
+  "outbox": {"max_rows": 100000, "max_bytes": 134217728, "max_db_bytes": 268435456},
+  "sensors": {
+    "ens160_01": {"type": "ens160", "enabled": false, "interval_seconds": 5},
+    "bme690_01": {"type": "bme690", "enabled": false, "mux_channel": 0, "address": 118, "interval_seconds": 1},
+    "bme690_02": {"type": "bme690", "enabled": false, "mux_channel": 1, "address": 118, "interval_seconds": 1},
+    "sgp41_01": {"type": "sgp41", "enabled": false, "mux_channel": 2, "address": 89, "interval_seconds": 1},
+    "sps30_01": {"type": "sps30", "enabled": false, "connection": "usb", "serial_port": "/dev/serial/by-id/REPLACE_WHEN_HARDWARE_ARRIVES", "interval_seconds": 1}
+  }
+}

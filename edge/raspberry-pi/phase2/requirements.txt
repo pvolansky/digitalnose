@@ -1,0 +1,5 @@
+# Install into a separate Phase II venv; never upgrade the working ENS160 venv.
+smbus2==0.5.0
+bme690==1.0.0
+adafruit-circuitpython-sgp41==1.0.2
+adafruit-extended-bus==1.0.2

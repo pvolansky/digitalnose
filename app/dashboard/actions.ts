@@ -6,7 +6,7 @@ export async function changeState(
   type: string,
   value: boolean,
 ): Promise<ActionResult> {
-  if (!['window_open', 'user_in_room'].includes(type) || typeof value !== 'boolean')
+  if (!['window_open', 'user_in_room', 'maintenance'].includes(type) || typeof value !== 'boolean')
     return { error: 'Invalid context change.' };
   const { db, user } = await requireUser();
   const { data: owner, error: ownerError } = await db.rpc('is_site_owner', { target: siteId });

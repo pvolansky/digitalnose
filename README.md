@@ -1,4 +1,4 @@
-# Digital Nose
+# Digital Nose — Phase II: Sensor Array
 
 Digital Nose is an open-source distributed odour-monitoring platform combining low-cost edge sensors, Raspberry Pi telemetry, resident observations, and cloud analytics.
 
@@ -6,7 +6,19 @@ Visit [digitalnose.ai](https://digitalnose.ai), [explore the demo](https://digit
 
 Licensed under Apache License 2.0. Provided as is, without voluntary warranties. Read the [warranty, liability and safety notice](DISCLAIMER.md) before building or relying on a setup.
 
-V1 connects one-minute ENS160 aggregates with short resident smell reports and timestamped window/occupancy context. Sensor measurements remain the primary record; observations provide context and labels for future analysis.
+Phase II adds independent multi-sensor acquisition, durable per-sensor outboxes, raw telemetry and sensor analysis to the existing ENS160 foundation. Sensor measurements remain the primary record; resident smell reports, room context and weather support calibration dataset collection.
+
+## Project phases and status
+
+| Phase | Scope |
+| --- | --- |
+| **Phase I — Foundation** | Original Raspberry Pi ENS160 collector, aggregator, sync, database/dashboard and initial real-world data collection. |
+| **Phase II — Sensor Array** | TCA9548A, two BME690 sensors, SGP41 and SPS30; independent raw acquisition, durable outboxes, multi-sensor telemetry and calibration dataset collection. |
+| **Phase III — SSM / ML (future)** | Dataset analysis, feature engineering, calibration, restaurant versus not-restaurant modelling, validation and Raspberry Pi inference. |
+
+The Phase II application and acquisition software are implemented and locally tested. The additive database migrations have been applied to the existing project. Deployment of the new application endpoint and Pi acquisition services, physical sensor verification and the full-array soak remain pending. New acquisition entries and publishing are disabled by default; no model or inference service is included.
+
+See the [Phase II architecture and measurement contract](docs/phase-ii.md), [Phase II acquisition and deployment guide](docs/phase-ii-acquisition.md), and [database rollout record](docs/phase-ii-rollout.md).
 
 ## Architecture
 
@@ -16,6 +28,10 @@ flowchart TD
   Raw -->|Closed minute| Local[Pi SQLite: minute_aggregates]
   Local -->|Durable retries; device bearer key| API[Next.js POST /api/ingest]
   API -->|Atomic key verification and insert| DB[Supabase Postgres]
+  Array[BME690 x2 / SGP41 via TCA9548A; SPS30 via USB] --> Acquire[Phase II: independent acquisition workers]
+  Acquire --> Outbox[Per-sensor SQLite durable outbox]
+  Outbox --> SensorAPI[Next.js POST /api/ingest/sensors]
+  SensorAPI --> DB
   Resident[Resident] --> Auth[Supabase Auth]
   Auth --> Web[Next.js web application]
   Web -->|User session; RLS| DB
@@ -24,7 +40,7 @@ flowchart TD
   Reports --> DB
 ```
 
-Next.js App Router, TypeScript, Tailwind CSS, Supabase Postgres/Auth/Realtime. No ORM, queue, external charting package, or global state library. The chart plots every selected minute without smoothing; missing minutes remain gaps. eCO₂ is an equivalent estimate from ENS160, not a direct CO₂ measurement.
+Next.js App Router, TypeScript, Tailwind CSS, Supabase Postgres/Auth/Realtime. No ORM, external queue service, external charting package, or global state library. The ENS160 chart plots every selected minute without smoothing; missing minutes remain gaps. Phase II sensor charts use bounded buckets retaining mean, minimum, maximum and count; the inspector retrieves original observations. eCO₂ is an equivalent estimate from ENS160, not a direct CO₂ measurement.
 
 ## Local development
 
@@ -37,7 +53,7 @@ cp .env.example .env  # only if .env does not already exist
 npm run dev
 ```
 
-Open `http://localhost:3000`. The public `/demo` route works without a connected sensor or migrated database. It displays clearly labelled illustrative data; its context and report controls do not write to Supabase.
+Open `http://localhost:3000` (the default). To use the Phase II review port, run `npm run dev -- --port 3001` and configure the local application origin and Auth redirect for `http://localhost:3001`. The public `/demo` route works without a connected sensor or migrated database. It displays clearly labelled illustrative data; its context and report controls do not write to Supabase.
 
 The local `.env` is ignored by Git. Never overwrite an existing `DEVICE_KEY_PEPPER`: changing it invalidates every device key.
 
@@ -53,7 +69,7 @@ Only variables prefixed `NEXT_PUBLIC_` may enter browser code. The privileged Su
 
 ## Supabase setup
 
-Apply the versioned migrations through the Supabase CLI. The CLI tracks previously applied migrations.
+For a new database, apply the versioned migrations through the Supabase CLI. For an existing installation, first compare the live schema and migration history with the [Phase II rollout record](docs/phase-ii-rollout.md). Do not replay migrations already applied through the SQL editor or use an unreviewed `db push`. The CLI tracks migrations recorded in its history.
 
 API keys configure the app; **they cannot apply database migrations**. Use the Supabase CLI with your project management access and database password:
 
@@ -63,7 +79,7 @@ npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push
 ```
 
-Review the linked project before pushing. This installs the versioned files in `supabase/migrations/` in order: domain schema and RLS, atomic ingestion, Realtime publication, and the owner-only resident directory. No Docker is required for this hosted workflow. `supabase/config.toml` also describes the project for CLI use.
+Review the linked project before pushing. This installs the versioned files in `supabase/migrations/` in order: domain schema and RLS, atomic ingestion, Realtime publication, the owner-only resident directory, weather and maintenance context, and the additive Phase II sensor registry, ingestion and query functions. No Docker is required for this hosted workflow. `supabase/config.toml` also describes the project for CLI use.
 
 Alternatively run the migration files in order in the project's SQL editor, each inside a transaction. If you use the SQL editor, reconcile the CLI migration history with `supabase migration repair --status applied <version>` before later using `db push`.
 
@@ -82,7 +98,7 @@ An email can be confirmed even if automatic sign-in fails, for example when the 
 
 ### Residents
 
-V1 uses a simple invitation process: the owner shares the displayed sign-up URL, the resident signs up, and the owner adds that registered email in Settings. No mail provider or invitation table is required. Owners can remove residents; residents cannot change membership or device settings. Owner removal/transfer is deliberately not exposed in V1, preventing accidental removal of the last owner.
+The application uses a simple invitation process: the owner shares the displayed sign-up URL, the resident signs up, and the owner adds that registered email in Settings. No mail provider or invitation table is required. Owners can remove residents; residents cannot change membership or device settings. Owner removal/transfer is deliberately not exposed, preventing accidental removal of the last owner.
 
 ### Optional database demo data
 
@@ -96,9 +112,9 @@ The seed writes 24 hours of minute aggregates and adds the account as owner of t
 
 ## Daily use
 
-- **Dashboard:** select a site/device, view latest readings and 6H / 24H / 7D history, and switch between TVOC, eCO₂ and AQI. A table exposes the latest 60 measurements for accessibility.
+- **Dashboard:** select a site/device, view latest readings and 6H / 24H / 7D history, and switch between TVOC, eCO₂ and AQI. Phase II adds independent sensor health, gas/particulate/environment charts and a shared moment inspector. A table exposes the latest 60 measurements for accessibility.
 - **I can smell it:** choose intensity 1–5 and optionally a smell type or note. The database records the event time.
-- **Context:** window state is shared by the site; occupancy is the signed-in resident's own latest state. An unrecorded value is shown as unknown. Every change appends an event; there is no persistent `smell_present` flag.
+- **Context:** window state is shared by the site; occupancy is the signed-in resident's own latest state. An unrecorded value is shown as unknown. Maintenance periods exclude overlapping ENS160 minutes from interpretation without deleting measurements. Window-open periods use very light blue, closed periods warm ivory, and maintenance light grey, with explicit labels. Every change appends an event; there is no persistent `smell_present` flag.
 - **Reports:** recent observations with access to older pages.
 - **Settings:** profile, site details, residents, device metadata and key rotation/revocation. Owner controls are checked again server-side and by the database.
 
@@ -106,13 +122,26 @@ All timestamps are stored in UTC and displayed in the site's named local timezon
 
 Realtime subscribes to the active device's aggregates and the site's reports/context. Reconnection and a one-minute polling fallback recover missed changes without requiring a page reload. Supabase RLS controls Realtime visibility too.
 
-## Raspberry Pi setup
+## Phase II Raspberry Pi setup
 
-See [the Pi guide](docs/raspberry-pi.md). The existing edge system can keep collecting; the included scripts are a reference implementation. **Back up and inspect an existing SQLite schema before integrating**: do not point these scripts at an unknown database or run a second collector against the same sensor.
+Use the [Phase II acquisition and deployment guide](docs/phase-ii-acquisition.md) for exact staged copy, install and bring-up commands. The current Pi installation is:
 
-The Pi receives only its device identifier, application ingest URL and device API key. It never receives the Supabase server secret. Raw five-second measurements remain local.
+| Item | Actual setup |
+| --- | --- |
+| Project directory | `/home/diginose/digital-nose` — not a Git repository |
+| Account / Python | `diginose` / Python 3.13.5; already in `i2c` and `dialout` |
+| Existing services | `digitalnose.service`, `digitalnose-aggregator.service`, `digitalnose-sync.service` |
+| New package / environment | `/home/diginose/digital-nose/phase2/`, `/home/diginose/digital-nose/.venv-phase2` |
+| New state directory | `/var/lib/digitalnose/phase2` |
+| I2C baseline | `/dev/i2c-1`: 0x10 DFRobot HAT, 0x53 ENS160; 0x70 absent before mux connection |
 
-## Ingest contract
+Copy only `edge/raspberry-pi/phase2/` into the new package directory. Preserve the existing Phase I files, Python environment, SQLite database and three services. The [original Pi guide](docs/raspberry-pi.md) is a Phase I reference implementation; its generic installation paths are not the layout of this Pi.
+
+Each new sensor has separate acquisition and publishing service instances (`digitalnose-sensor-acquire@` and `digitalnose-sensor-publish@`). Bring up the mux and each sensor individually. Do not enable publishing until the approved application deployment exposes `/api/ingest/sensors`. Hardware and Python 3.13.5 dependency validation must be completed on the Pi before continuous operation.
+
+The Pi receives only its collector identifier, application ingest URL and device API key, never the Supabase server secret. ENS160 five-second samples stay local; its existing minute aggregates continue to upload. New Phase II sensors queue independent raw observations for delivery to Supabase.
+
+## Phase I ENS160 ingest contract
 
 `POST /api/ingest`, `Content-Type: application/json`, `Authorization: Bearer <device-key>`.
 
@@ -135,13 +164,19 @@ A successful upload returns `200 {"ok":true}`, including retries of a previously
 
 Errors: 400 invalid payload, 401 invalid credentials, 413 oversized body, 415 wrong content type, 503 temporary ingestion/configuration failure. The sync client retains unacknowledged rows and retries with capped exponential backoff. A batch consists of up to 50 individual minute requests, matching the single-record endpoint.
 
-## Deploy to Vercel
+## Phase II sensor ingest contract
+
+`POST /api/ingest/sensors` accepts one independently timestamped sensor observation per request, using the existing collector bearer key. Payloads include schema version, collector identifier, sensor identity/type, observation time, sequence number, validity/status and typed measurements. The maximum body size is 16 KiB. Exact retries are idempotent; conflicting observations are rejected.
+
+See the [complete field definitions and labelled example payloads](docs/phase-ii.md#7-ingestion-contract). ENS160 continues to use `/api/ingest`; it is not moved onto the new raw-observation endpoint.
+
+## Phase II application deployment
 
 1. Import this Git repository into Vercel using the Next.js preset and Node.js 22 or later. The repository root is the app root.
-2. Set all five environment variables for the deployment environment. For digitalnose.ai, set `APP_URL=https://digitalnose.ai` (takes precedence over the legacy `NEXT_PUBLIC_APP_URL`). Add the domain to the Vercel project and configure the DNS records shown by Vercel. In Supabase Auth URL Configuration, set Site URL to `https://digitalnose.ai` and allow `https://digitalnose.ai/auth/confirm`. Keep localhost redirects if you use local development. Redeploy after changing the environment variable. Keep the pepper stable and server secrets out of preview environments that do not need production access.
+2. Set the required application environment variables for the deployment environment. For digitalnose.ai, set `APP_URL=https://digitalnose.ai` (takes precedence over the legacy `NEXT_PUBLIC_APP_URL`). Add the domain to the Vercel project and configure the DNS records shown by Vercel. In Supabase Auth URL Configuration, set Site URL to `https://digitalnose.ai` and allow `https://digitalnose.ai/auth/confirm`. Keep localhost redirects if you use local development. Redeploy after changing the environment variable. Keep the pepper stable and server secrets out of preview environments that do not need production access.
 3. Apply the Supabase migrations and configure Auth URLs/email as described above.
 4. Run `npm run check`, `npm run test:pi`, and `npm run build` before deploying.
-5. Deploy. Sign up, confirm the account, create the site/device, and provision the Pi key through Settings.
+5. Deploy only after review and approval. On a new installation, create the account/site/device and provision its key through Settings. On the existing installation, retain the site, device identity and key.
 6. Verify a real upload, a retry, a revoked key, and a live dashboard in the deployed environment. Use Vercel's platform request controls if the public endpoint receives abusive traffic.
 
 Do not cache authenticated pages at a CDN. The app marks session responses private/no-store. Its server actions use Next.js origin checks; production origin configuration must match the deployment.
@@ -181,7 +216,7 @@ Digital Nose is an observational tool, not a certified safety alarm or a basis f
 
 Weather data by [Open-Meteo](https://open-meteo.com/) adds external, model-based atmospheric context. It is separate from ENS160 hardware measurements and does not establish the cause of an odour. The Raspberry Pi, its SQLite data and `/api/ingest` are unchanged; the Pi never calls Open-Meteo.
 
-- **Provider/tier:** Open-Meteo free/open-access API (`https://api.open-meteo.com`), for the current non-commercial V1. No API key.
+- **Provider/tier:** Open-Meteo free/open-access API (`https://api.open-meteo.com`), for the non-commercial setup. No API key.
 - **Model:** `best_match`. This is the requested model selection strategy, not a claim that a particular UK model supplied a row. Only non-location provider metadata is retained.
 - **Refresh:** Vercel Cron calls `GET /api/weather/refresh` every 15 minutes. This frequency requires **Vercel Pro**; Hobby only supports daily cron. Do not also schedule the route in Supabase Cron.
 - **Location:** site latitude/longitude, manually configured by its owner in Settings. Both must be present (latitude −90…90, longitude −180…180). Clearing both disables acquisition. Coordinates are sent to Open-Meteo; there is no runtime postcode lookup.
@@ -192,7 +227,7 @@ Weather data by [Open-Meteo](https://open-meteo.com/) adds external, model-based
 
 Site members can read weather under the existing membership RLS pattern. Browser roles cannot insert, update or delete weather. The cron authenticates `Authorization: Bearer <CRON_SECRET>` before creating the server-only Supabase client. Missing/wrong credentials return 401. Weather fetches have a 10-second timeout, four bounded workers, no automatic retries and at most one provider call per distinct configured site per invocation. An individual provider/write failure is logged without raw payloads/secrets, other sites continue, and the JSON summary reports `ok`, `sites`, `upserted`, `failed`, and `skipped`. Weather database query failures do not reject the sensor dashboard loader.
 
-Dashboard visitors only read Supabase: 100 residents generate **zero extra Open-Meteo calls**. A regular schedule uses 96 calls/day/site, approximately 2,880 calls per 30-day month/site (28,800 for ten sites). Published free limits checked for V1: 600/minute, 5,000/hour, 10,000/day, 300,000/month. Manual invocations and retries also consume this quota; avoid duplicate schedules and review capacity before adding many sites. The free service has no uptime guarantee. [Provider pricing/limits](https://open-meteo.com/en/pricing). **Review provider licensing before commercial deployment.**
+Dashboard visitors only read Supabase: 100 residents generate **zero extra Open-Meteo calls**. A regular schedule uses 96 calls/day/site, approximately 2,880 calls per 30-day month/site (28,800 for ten sites). Manual invocations and retries also consume provider quota; check current limits and licensing before deployment or adding sites, and avoid duplicate schedules. The free service has no uptime guarantee. [Provider pricing/limits](https://open-meteo.com/en/pricing). **Review provider licensing before commercial deployment.**
 
 ### Weather deployment
 
@@ -202,4 +237,4 @@ Dashboard visitors only read Supabase: 100 residents generate **zero extra Open-
 4. Configure weather coordinates in Settings. Coordinate access is limited to site owners and the weather backend.
 5. Invoke the protected route once using the bearer header, check its compact summary, then verify a row and the dashboard attribution. Check Vercel's Cron logs for the next scheduled invocation. Do not expose or paste the secret in logs, screenshots or URLs.
 
-If the migration, coordinates, cron secret or supported scheduler plan is missing, weather acquisition is not operational yet. The dashboard displays missing/unavailable weather while hardware telemetry continues independently. There is no weather backfill in V1: historical context accumulates from scheduled observations.
+If the migration, coordinates, cron secret or supported scheduler plan is missing, weather acquisition is not operational yet. The dashboard displays missing/unavailable weather while hardware telemetry continues independently. There is no automatic weather backfill: historical context accumulates from scheduled observations.

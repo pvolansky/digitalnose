@@ -7,7 +7,7 @@
 *.key
 
 # JavaScript dependencies and package-manager caches
-node_modules/
+node_modules
 .npm/
 .pnpm-store/
 
@@ -39,6 +39,7 @@ test-results/
 
 # Python environments and caches
 .venv/
+.venv-phase2/
 venv/
 __pycache__/
 *.py[cod]

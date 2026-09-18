@@ -1,4 +1,5 @@
 'use client';
+import { LiveSensorAnalysis } from './sensor-analysis';
 import { useCallback, useState } from 'react';
 import { WeatherCard } from './weather-card';
 import { HistoryControls } from './history-controls';
@@ -6,6 +7,8 @@ import type { HistoryWindow } from '@/lib/domain/history-window';
 import { LuRefreshCw } from 'react-icons/lu';
 import type { Site, Device } from '@/lib/domain/types';
 import { loadOverview, type OverviewData } from '@/lib/domain/overview';
+import { currentState } from '@/lib/domain/site-state';
+import { isMaintenanceMinute } from '@/lib/domain/timeline';
 import { ranges, type Range } from '@/lib/domain/readings';
 import { browserClient } from '@/lib/supabase/client';
 import { useLiveData } from './use-live-data';
@@ -40,6 +43,7 @@ export function Overview({
     [site.id, device?.id, range, window],
   );
   const live = useLiveData(initial, load, initialError, !demo);
+  const [selectedMoment, setSelectedMoment] = useState<number | null>(null);
   const [demoData, setDemoData] = useState(initial);
   const data = demo ? demoData : live.data;
   return (
@@ -59,6 +63,14 @@ export function Overview({
       <LiveReading
         lastSeenAt={data.lastSeenAt}
         reading={data.latest}
+        maintenance={
+          currentState(data.currentEvents).maintenance === true ||
+          (!!data.latest &&
+            isMaintenanceMinute(
+              [...data.events, ...data.currentEvents],
+              Date.parse(data.latest.minute_start_utc),
+            ))
+        }
         initialNow={data.now}
         demo={demo}
         syncStatus={
@@ -93,6 +105,8 @@ export function Overview({
       )}
 
       <ReadingChart
+        selectedMoment={selectedMoment}
+        onSelectMoment={setSelectedMoment}
         weather={data.weather.history}
         readings={data.readings}
         events={data.events}
@@ -126,6 +140,21 @@ export function Overview({
         }}
       />
       <RecentReports reports={data.recentReports} timezone={site.timezone} />
+      {!demo && (
+        <LiveSensorAnalysis
+          deviceId={device?.id}
+          now={data.now}
+          timezone={site.timezone}
+          start={window?.start ?? data.now - ranges[range] * 3600000}
+          end={window?.end ?? data.now}
+          selectedAt={selectedMoment}
+          onSelect={setSelectedMoment}
+          events={data.events}
+          reports={data.reports}
+          weather={data.weather.history}
+          readings={data.readings}
+        />
+      )}
     </>
   );
 }

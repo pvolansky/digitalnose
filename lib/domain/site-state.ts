@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { StateEvent } from './types';
 export async function loadState(db: SupabaseClient, siteId: string) {
-  const queries = ['window_open', 'user_in_room'].map((type) => {
+  const queries = ['window_open', 'user_in_room', 'maintenance'].map((type) => {
     const query = db
       .from('site_state_events')
       .select('*')
@@ -21,5 +21,9 @@ export function currentState(events: StateEvent[]) {
     events
       .filter((e) => e.event_type === type)
       .sort((a, b) => b.recorded_at.localeCompare(a.recorded_at) || b.id.localeCompare(a.id))[0];
-  return { window_open: latest('window_open')?.value, user_in_room: latest('user_in_room')?.value };
+  return {
+    window_open: latest('window_open')?.value,
+    user_in_room: latest('user_in_room')?.value,
+    maintenance: latest('maintenance')?.value,
+  };
 }

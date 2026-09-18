@@ -11,7 +11,7 @@
 
 ## Hosted setup completed
 
-On 12 September 2026, migrations `202609120001` through `202609120004` were applied to the supplied Supabase project `wmnkdkxjhrwnknytsgya` in one SQL transaction. All eight domain tables were verified with RLS enabled, and the three live-data tables were verified in `supabase_realtime`. The versions were recorded in Supabase's migration history for future CLI updates.
+On 12 September 2026, migrations `202609120001` through `202609120004` were applied to the configured Supabase project in one SQL transaction. All eight domain tables were verified with RLS enabled, and the three live-data tables were verified in `supabase_realtime`. The versions were recorded in Supabase's migration history for future CLI updates.
 
 The hosted Data API successfully exposes the schema to the server credential. Anonymous site reads are denied, and the running ingestion endpoint rejects an unknown device key through the hosted database function. No real resident accounts or sensor data were created by these checks.
 

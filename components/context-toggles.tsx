@@ -30,29 +30,41 @@ export function ContextToggles({
       <h2>What’s happening now</h2>
       <p className="muted" style={{ fontSize: 13 }}>
         {canEdit
-          ? 'Record window and room occupancy changes to compare with the chart.'
+          ? 'Record room activity and maintenance periods. Measurements during maintenance are excluded from the chart.'
           : 'Room context is updated by the owner.'}
       </p>
       <div className="context-grid">
-        {(['window_open', 'user_in_room'] as const).map((type) => (
+        {(['window_open', 'user_in_room', 'maintenance'] as const).map((type) => (
           <div className="row spread" key={type}>
             <div>
               <p style={{ margin: '4px 0' }}>
-                {type === 'window_open' ? 'Window open' : 'Resident in the room'}
+                {type === 'maintenance'
+                  ? 'Maintenance'
+                  : type === 'window_open'
+                    ? 'Window open'
+                    : 'Resident in the room'}
               </p>
               <span className="muted" style={{ fontSize: 12 }}>
                 {values[type] === undefined
                   ? 'Not recorded yet'
-                  : type === 'window_open'
-                    ? 'Shared site context'
-                    : 'Room occupancy'}
+                  : type === 'maintenance'
+                    ? 'Exclude measurements while active'
+                    : type === 'window_open'
+                      ? 'Shared site context'
+                      : 'Room occupancy'}
               </span>
             </div>
             {canEdit ? (
               <button
                 className="toggle"
                 role="switch"
-                aria-label={type === 'window_open' ? 'Window open' : 'Resident in the room'}
+                aria-label={
+                  type === 'maintenance'
+                    ? 'Maintenance'
+                    : type === 'window_open'
+                      ? 'Window open'
+                      : 'Resident in the room'
+                }
                 aria-checked={values[type] === true}
                 disabled={pending}
                 onClick={() => {
@@ -86,12 +98,16 @@ export function ContextToggles({
                 {values[type] === undefined
                   ? 'Not recorded'
                   : values[type]
-                    ? type === 'window_open'
-                      ? 'Open'
-                      : 'Present'
-                    : type === 'window_open'
-                      ? 'Closed'
-                      : 'Absent'}
+                    ? type === 'maintenance'
+                      ? 'Active'
+                      : type === 'window_open'
+                        ? 'Open'
+                        : 'Present'
+                    : type === 'maintenance'
+                      ? 'Off'
+                      : type === 'window_open'
+                        ? 'Closed'
+                        : 'Absent'}
               </span>
             )}
           </div>

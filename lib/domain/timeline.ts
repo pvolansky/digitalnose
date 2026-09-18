@@ -32,7 +32,7 @@ export async function loadTimeline(db: SupabaseClient, siteId: string, start: nu
   const from = new Date(start).toISOString();
   const to = new Date(end).toISOString();
   const seedResults = await Promise.all(
-    (['window_open', 'user_in_room'] as const).map((type) => {
+    (['window_open', 'user_in_room', 'maintenance'] as const).map((type) => {
       const q = db
         .from('site_state_events')
         .select('*')
@@ -66,4 +66,12 @@ export async function loadTimeline(db: SupabaseClient, siteId: string, start: nu
     }
   }
   return { events, reports };
+}
+
+// Exclude the whole minute if any of its samples may overlap maintenance.
+export function isMaintenanceMinute(events: StateEvent[], at: number) {
+  const minute = Math.floor(at / 60000) * 60000;
+  return stateIntervals(events, 'maintenance', minute, minute + 60000).some(
+    (interval) => interval.value === true,
+  );
 }

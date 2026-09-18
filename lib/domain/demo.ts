@@ -59,6 +59,8 @@ export function demoData(now: number) {
   const events: StateEvent[] = [
     ['window_open', false, 1500],
     ['user_in_room', false, 1500],
+    ['maintenance', true, 1200],
+    ['maintenance', false, 1140],
     ['user_in_room', true, 960],
     ['window_open', true, 460],
     ['window_open', false, 365],

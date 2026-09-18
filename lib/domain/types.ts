@@ -39,7 +39,7 @@ export type StateEvent = {
   id: string;
   site_id: string;
   user_id: string | null;
-  event_type: 'window_open' | 'user_in_room';
+  event_type: 'window_open' | 'user_in_room' | 'maintenance';
   value: boolean;
   recorded_at: string;
 };

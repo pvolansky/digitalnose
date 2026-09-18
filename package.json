@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts tests/*.test.tsx",
     "check": "npm run lint && npm run typecheck && npm test",
     "test:pi": "python3 -m unittest discover -s edge/raspberry-pi -p 'test_*.py'",
     "seed": "node --env-file=.env --import tsx scripts/seed-demo.ts",
