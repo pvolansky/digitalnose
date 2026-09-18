@@ -142,6 +142,16 @@ export function Overview({
       <RecentReports reports={data.recentReports} timezone={site.timezone} />
       {!demo && (
         <LiveSensorAnalysis
+          particulateControls={
+            <HistoryControls
+              range={range}
+              window={window}
+              now={data.now}
+              timezone={site.timezone}
+              siteId={site.id}
+              deviceId={device?.id}
+            />
+          }
           deviceId={device?.id}
           now={data.now}
           timezone={site.timezone}

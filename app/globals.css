@@ -1926,3 +1926,8 @@ footer a {
 .sensor-inspection { border-top: 1px solid var(--line); padding-top: 22px; }
 .sensor-inspection pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
 @media(max-width:600px) { .sensor-small-grid { grid-template-columns: 1fr; } .sensor-status-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 10px; } }
+
+.particulate-controls { margin: 8px 0 20px; }
+.particulate-controls > p { font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
+.sensor-plot:has(.particulate-controls) .sensor-svg { height: 310px; }
+.sensor-plot:has(.particulate-controls) .sensor-legend { gap: 10px; margin-bottom: 12px; }

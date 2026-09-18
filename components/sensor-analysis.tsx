@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, useState, useRef } from 'react';
+import { useEffect, useId, useState, useRef, type ReactNode } from 'react';
 import { browserClient } from '@/lib/supabase/client';
 import {
   sensorHealth,
@@ -46,6 +46,8 @@ export function SensorPlot({
   series,
   points,
   sensors,
+  controls,
+  initialHiddenMetrics = [],
   ...shared
 }: Shared & {
   title: string;
@@ -53,6 +55,8 @@ export function SensorPlot({
   series: Series[];
   points: Bucket[];
   sensors: Sensor[];
+  controls?: ReactNode;
+  initialHiddenMetrics?: string[];
 }) {
   const id = useId();
   const plotRef = useRef<HTMLElement>(null);
@@ -76,7 +80,9 @@ export function SensorPlot({
           minute: '2-digit',
         }).format(time)
       : local(time, shared.timezone);
-  const [hidden, setHidden] = useState<string[]>([]);
+  const [hidden, setHidden] = useState<string[]>(() =>
+    series.filter((s) => initialHiddenMetrics.includes(s.metric)).map((s) => s.id),
+  );
   const visible = series.filter((s) => !hidden.includes(s.id));
   const rows = points.filter((p) =>
     visible.some((s) => s.sensorId === p.sensor_id && s.metric === p.metric),
@@ -98,6 +104,7 @@ export function SensorPlot({
         <h3 id={id}>{title}</h3>
         <span className="muted">{unit}</span>
       </div>
+      {controls}
       <div className="row sensor-legend">
         {series.map((s, i) => (
           <button
@@ -289,6 +296,7 @@ export function SensorAnalysis({
   weather,
   updating,
   refreshError = false,
+  particulateControls,
   onRetry,
   ...shared
 }: Shared & {
@@ -299,6 +307,7 @@ export function SensorAnalysis({
   weather: WeatherObservation[];
   updating: boolean;
   refreshError?: boolean;
+  particulateControls?: ReactNode;
   onRetry: () => void;
 }) {
   const [inspection, setInspection] = useState<{
@@ -458,6 +467,13 @@ export function SensorAnalysis({
       <SensorPlot
         {...shared}
         title="Particulate matter · SPS30"
+        initialHiddenMetrics={['pm1_ug_m3', 'pm4_ug_m3', 'pm10_ug_m3']}
+        controls={
+          <div className="particulate-controls">
+            <p className="muted">PM2.5 is shown first. Select additional particle sizes to compare. Time controls apply to all charts.</p>
+            {particulateControls}
+          </div>
+        }
         unit="µg/m³"
         series={series(sps, ['pm1_ug_m3', 'pm2_5_ug_m3', 'pm4_ug_m3', 'pm10_ug_m3'])}
         points={data.points}
