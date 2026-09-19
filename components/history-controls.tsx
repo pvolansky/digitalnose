@@ -1,6 +1,5 @@
 'use client';
-import { useRef, useState, useTransition, useId } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRef, useState, useId } from 'react';
 import { LuCalendarDays, LuChevronLeft, LuChevronRight, LuX, LuLoaderCircle } from 'react-icons/lu';
 import { ranges, type Range } from '@/lib/domain/readings';
 import {
@@ -9,7 +8,6 @@ import {
   type HistoryWindow,
 } from '@/lib/domain/history-window';
 import { DateTimeField, localDateTime as localInput } from './date-time-field';
-import { RangeLink } from './range-link';
 export function HistoryControls({
   range,
   window,
@@ -17,6 +15,7 @@ export function HistoryControls({
   timezone,
   siteId,
   deviceId,
+  pending = false,
 }: {
   range: Range;
   window?: HistoryWindow;
@@ -24,9 +23,8 @@ export function HistoryControls({
   timezone: string;
   siteId: string;
   deviceId?: string;
+  pending?: boolean;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useId();
   const [from, setFrom] = useState('');
@@ -44,7 +42,7 @@ export function HistoryControls({
     return `/dashboard?${query}`;
   }
   function navigate(selection?: HistoryWindow) {
-    startTransition(() => router.push(href(range, selection), { scroll: false }));
+    globalThis.window.history.pushState(null, '', href(range, selection));
   }
   const format = (value: number) =>
     new Intl.DateTimeFormat('en-GB', {
@@ -60,12 +58,26 @@ export function HistoryControls({
       <div className="history-control-row">
         <div className="segmented chart-filters" aria-label="Time range">
           {(Object.keys(ranges) as Range[]).map((value) => (
-            <RangeLink
+            <a
               key={value}
-              active={!window && range === value}
+              className={`button ${!window && range === value ? '' : 'secondary'}`}
+              aria-current={!window && range === value ? 'page' : undefined}
               href={href(value)}
-              label={value === '6H' ? '6 hours' : value === '24H' ? '24 hours' : '7 days'}
-            />
+              onClick={(event) => {
+                if (
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+                )
+                  return;
+                event.preventDefault();
+                globalThis.window.history.pushState(null, '', href(value));
+              }}
+            >
+              {value === '6H' ? '6 hours' : value === '24H' ? '24 hours' : '7 days'}
+            </a>
           ))}
         </div>
         <button

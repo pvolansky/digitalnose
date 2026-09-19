@@ -7,6 +7,8 @@ import { loadState } from './site-state';
 import { loadReports } from './reports';
 import type { Reading, StateEvent, SmellReport } from './types';
 export type OverviewData = {
+  historyStart?: number;
+  historyEnd?: number;
   now: number;
   weather: WeatherContext;
   lastSeenAt: string | null;
@@ -47,6 +49,8 @@ export async function loadOverview(
     ]);
   if (heartbeat.error) throw new Error('Unable to load device heartbeat.');
   return {
+    historyStart: start,
+    historyEnd: end,
     now,
     weather,
     lastSeenAt: heartbeat.data?.last_seen_at ?? null,

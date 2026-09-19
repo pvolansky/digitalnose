@@ -38,3 +38,21 @@ test('disposing during navigation cancels a scheduled refresh', async () => {
   await settle();
   assert.equal(count, 0);
 });
+
+test('disposing an in-flight range queue prevents its trailing request', async () => {
+  let calls = 0;
+  let release = () => {};
+  const queue = createRefreshQueue(async () => {
+    calls++;
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+  }, 0);
+  queue.request();
+  await settle();
+  queue.request();
+  queue.dispose();
+  release();
+  await settle();
+  assert.equal(calls, 1);
+});

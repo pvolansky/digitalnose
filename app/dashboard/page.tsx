@@ -87,7 +87,7 @@ export default async function Dashboard({
       )}
       <Overview
         window={window}
-        key={`${site.id}:${device?.id}:${range}:${window?.start}:${window?.end}`}
+        key={`${site.id}:${device?.id}`}
         canEditContext={role === 'owner'}
         initial={initial}
         initialError={initialError}

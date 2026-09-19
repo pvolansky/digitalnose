@@ -54,25 +54,6 @@ export function LiveReading({
         </p>
         {syncStatus}
       </div>
-      <dl className="health-summary">
-        <div>
-          <dt>Device</dt>
-          <dd>{health.deviceLabel}</dd>
-        </div>
-        <div>
-          <dt>Sensor</dt>
-          <dd>{health.sensorLabel}</dd>
-        </div>
-        <div>
-          <dt>Last reading</dt>
-          <dd>{healthTimeAgo(reading?.minute_start_utc, clock)}</dd>
-        </div>
-      </dl>
-      {maintenance && (
-        <p className="muted" role="status">
-          Measurements are excluded during maintenance.
-        </p>
-      )}
       <div className={`metrics${showParticulate ? ' metrics-with-pm' : ''}`}>
         {[
           ['TVOC', reading?.tvoc_mean, 'ppb', 'tvoc_mean'],
@@ -133,29 +114,20 @@ export function LiveReading({
               <i aria-hidden="true" />
               {maintenance ? 'Excluded' : pmCurrent ? pmRating.label : pmHealth}
             </span>
-            <p className="muted" style={{ fontSize: 12 }}>
-              Recent reading · not a 24-hour rating
-            </p>
-            {pm && (
-              <p className="muted" style={{ fontSize: 12 }}>
-                {healthTimeAgo(pm.observed_at, clock)}
-              </p>
-            )}
           </div>
         )}
       </div>
       <p className="health-detail muted">
-        Device last seen {healthTimeAgo(lastSeenAt, clock).toLowerCase()} · Last valid sensor
-        reading {healthTimeAgo(reading?.minute_start_utc, clock).toLowerCase()}
-      </p>
-      {health.state === 'warming_up' && !demo && (
-        <p className="health-detail muted">
-          The device is syncing, but no recent valid sensor reading is available. The sensor may be
-          warming up or temporarily invalid.
-        </p>
-      )}
-      <p className="muted" style={{ fontSize: 12, marginTop: 24 }}>
-        ENS160 estimates · eCO₂ is an equivalent CO₂ estimate, not a direct CO₂ measurement.
+        {maintenance ? (
+          'Maintenance · measurements excluded'
+        ) : (
+          <>
+            ENS160 · {healthTimeAgo(reading?.minute_start_utc, clock).toLowerCase()}
+            {showParticulate && (
+              <> · SPS30 · {healthTimeAgo(pm?.observed_at, clock).toLowerCase()}</>
+            )}
+          </>
+        )}
       </p>
     </section>
   );

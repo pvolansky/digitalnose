@@ -8,6 +8,7 @@ export function useLiveData<T>(
   load: () => Promise<T>,
   initialError = false,
   authenticated = true,
+  refreshOnLoadChange = false,
 ) {
   const router = useRouter();
   const [data, setData] = useState(initial);
@@ -54,11 +55,12 @@ export function useLiveData<T>(
     request.current = () => {
       if (!signedOut) queue.request();
     };
+    if (refreshOnLoadChange) queue.request();
     return () => {
       disposed = true;
       queue.dispose();
       subscription?.unsubscribe();
     };
-  }, [load, authenticated, router]);
+  }, [load, authenticated, router, refreshOnLoadChange]);
   return { data, error, updating, refresh: useCallback(() => request.current(), []) };
 }

@@ -1,7 +1,9 @@
 'use client';
 import type { Sensor } from '@/lib/sensors/data';
 import { LiveSensorAnalysis } from './sensor-analysis';
-import { useCallback, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { parseHistoryWindow } from '@/lib/domain/history-window';
+import { useCallback, useState, useMemo } from 'react';
 import { WeatherCard } from './weather-card';
 import { HistoryControls } from './history-controls';
 import type { HistoryWindow } from '@/lib/domain/history-window';
@@ -10,7 +12,7 @@ import type { Site, Device } from '@/lib/domain/types';
 import { loadOverview, type OverviewData } from '@/lib/domain/overview';
 import { currentState } from '@/lib/domain/site-state';
 import { isMaintenanceMinute } from '@/lib/domain/timeline';
-import { ranges, type Range } from '@/lib/domain/readings';
+import { ranges, parseRange, type Range } from '@/lib/domain/readings';
 import { browserClient } from '@/lib/supabase/client';
 import { useLiveData } from './use-live-data';
 import { Realtime } from './realtime';
@@ -23,8 +25,8 @@ export function Overview({
   site,
   userId,
   device,
-  range,
-  window,
+  range: initialRange,
+  window: initialWindow,
   initialError = false,
   canEditContext = false,
   demo = false,
@@ -39,11 +41,25 @@ export function Overview({
   canEditContext?: boolean;
   demo?: boolean;
 }) {
+  const params = useSearchParams();
+  const range = demo ? initialRange : parseRange(params.get('range') ?? initialRange);
+  const from = params.get('from');
+  const to = params.get('to');
+  const selection = useMemo(
+    () =>
+      demo
+        ? { window: initialWindow, error: null }
+        : // Validate newly selected URL dates against selection time, not the initial page load.
+          // eslint-disable-next-line react-hooks/purity
+          parseHistoryWindow(from ?? undefined, to ?? undefined, Date.now()),
+    [demo, initialWindow, from, to],
+  );
+  const window = selection.window;
   const load = useCallback(
     () => loadOverview(browserClient(), site.id, device?.id, range, Date.now(), window),
     [site.id, device?.id, range, window],
   );
-  const live = useLiveData(initial, load, initialError, !demo);
+  const live = useLiveData(initial, load, initialError, !demo, !demo);
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [selectedMoment, setSelectedMoment] = useState<number | null>(null);
   const [demoData, setDemoData] = useState(initial);
@@ -101,6 +117,7 @@ export function Overview({
       </div>
       {!demo && (
         <HistoryControls
+          pending={live.updating}
           range={range}
           window={window}
           now={data.now}
@@ -110,6 +127,11 @@ export function Overview({
         />
       )}
 
+      {selection.error && (
+        <p role="status" className="sync-notice">
+          {selection.error}
+        </p>
+      )}
       <ReadingChart
         selectedMoment={selectedMoment}
         onSelectMoment={setSelectedMoment}
@@ -119,8 +141,10 @@ export function Overview({
         reports={data.reports}
         userId={userId}
         timezone={site.timezone}
-        start={window?.start ?? data.now - ranges[range] * 3600000}
-        end={window?.end ?? data.now}
+        start={
+          data.historyStart ?? initialWindow?.start ?? data.now - ranges[initialRange] * 3600000
+        }
+        end={data.historyEnd ?? initialWindow?.end ?? data.now}
       />
       <ContextToggles
         canEdit={canEditContext || demo}
@@ -151,6 +175,7 @@ export function Overview({
           onSensors={setSensors}
           particulateControls={
             <HistoryControls
+              pending={live.updating}
               range={range}
               window={window}
               now={data.now}
