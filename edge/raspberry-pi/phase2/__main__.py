@@ -4,11 +4,13 @@ from dataclasses import asdict
 import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 import time
 from .bus import Mux, file_lock
-from .config import load_config, identifier
+from .config import load_config, identifier, state_path
+from .outbox import read_queue_status
 from .drivers import Hardware
 from .model import utc_now
 from .runtime import collect, publish, open_box, stop_event, deadline, compensation, log
@@ -34,6 +36,12 @@ def main():
         parser.error('Select one configured sensor or mux')
     if key == 'mux' and args.command != 'sensor-test':
         parser.error('Mux only supports sensor-test')
+    if args.command == 'queue-status':
+        item = config['sensors'][key]
+        if item['type'] == 'ens160':
+            parser.error('Use the existing ENS160 services/outbox')
+        print(json.dumps(read_queue_status(state_path(config, key), identifier(), key, item['type'])))
+        return
     Path(config['state_dir']).mkdir(parents=True, exist_ok=True)
     if key == 'mux':
         from smbus2 import SMBus
@@ -89,13 +97,6 @@ def main():
     if args.command in ('collect', 'publish') and not item['enabled']:
         parser.error('Sensor is disabled; enable only after its individual hardware test')
     collector = identifier()
-    if args.command == 'queue-status':
-        box = open_box(config, key, collector)
-        try:
-            print(json.dumps(box.stats()))
-        finally:
-            box.close()
-        return
     role = 'acquire' if args.command == 'collect' else 'publish'
     with file_lock(str(Path(config['state_dir']) / (key + '.' + role + '.lock')), timeout=0):
         stop = stop_event()
@@ -114,7 +115,7 @@ if __name__ == '__main__':
     os.umask(0o077)
     try:
         main()
-    except (ValueError, OSError, KeyError) as exc:
+    except (ValueError, OSError, KeyError, sqlite3.Error) as exc:
         # No tracebacks containing credentials or vendor request internals.
         print(json.dumps({'timestamp': utc_now(), 'event': 'startup_error', 'error_type': type(exc).__name__}), file=sys.stderr)
         raise SystemExit(1)

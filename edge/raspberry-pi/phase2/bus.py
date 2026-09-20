@@ -6,7 +6,8 @@ import time
 
 
 @contextmanager
-def file_lock(path, timeout=1.0):
+def file_lock(path, timeout=1.0, timing=None):
+    started = time.monotonic()
     fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
     deadline = time.monotonic() + timeout
     try:
@@ -16,8 +17,12 @@ def file_lock(path, timeout=1.0):
                 break
             except BlockingIOError:
                 if time.monotonic() >= deadline:
+                    if timing:
+                        timing((time.monotonic() - started) * 1000)
                     raise TimeoutError('Hardware resource busy')
                 time.sleep(0.01)
+        if timing:
+            timing((time.monotonic() - started) * 1000)
         yield
     finally:
         os.close(fd)
@@ -26,12 +31,14 @@ def file_lock(path, timeout=1.0):
 class Mux:
     def __init__(self, bus, address, lock_path):
         self.bus, self.address, self.lock_path = bus, address, lock_path
+        self.last_wait_ms = 0.0
 
     @contextmanager
     def selected(self, channel):
         if type(channel) is not int or not 0 <= channel <= 7:
             raise ValueError('Invalid mux channel')
-        with file_lock(self.lock_path):
+        self.last_wait_ms = 0.0
+        with file_lock(self.lock_path, timing=lambda ms: setattr(self, 'last_wait_ms', round(ms, 3))):
             try:
                 self.bus.write_byte(self.address, 1 << channel)
                 if self.bus.read_byte(self.address) != 1 << channel:

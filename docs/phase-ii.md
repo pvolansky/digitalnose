@@ -85,7 +85,7 @@ Allowed acquisition keys: `mux_channel`, `heater_profile_id`, `heater_step`, `he
 | `ens160_01` | Installed / operational per current project brief | Existing TVOC/eCO₂/AQI historical baseline | Direct I²C |
 | `bme690_01` | Available / not connected | Primary gas response and default environment | Mux CH0 |
 | `bme690_02` | Available / not connected | Independent comparison and future profile experiments | Mux CH1 |
-| `sgp41_01` | Available / not connected | Independent VOC/NOx-sensitive raw channel | Mux CH2 |
+| `sgp41_01` | Available / not connected | Independent VOC/NOx-sensitive raw channel | Mux CH3 |
 | `sps30_01` | Ordered / not available | Particulate mass, number and size | Planned USB evaluation interface |
 
 Every key is scoped to its collector. Frontend labels/identities come from the registry. ENS160 displays LIVE only if existing data is fresh; it is not forced live from the hardware description. New sensors initially have no observations and display AWAITING DATA.
@@ -97,7 +97,7 @@ Raspberry Pi 5
   |     +-- Gravity -> Qwiic -> TCA9548A
   |                              +-- CH0 BME690 #1
   |                              +-- CH1 BME690 #2
-  |                              +-- CH2 SGP41
+  |                              +-- CH3 SGP41
   +-- USB -> SEK-SPS30 [planned / awaiting hardware]
 ```
 
@@ -134,7 +134,7 @@ Raspberry Pi 5
   "status": "ok",
   "valid": true,
   "readings": {"raw_voc_ticks": 30000, "raw_nox_ticks": 18000, "compensation_temperature_c": 22.1, "compensation_humidity_pct": 48.2},
-  "acquisition": {"mux_channel": 2, "conditioning": false},
+  "acquisition": {"mux_channel": 3, "conditioning": false},
   "metadata": {}
 }
 ```

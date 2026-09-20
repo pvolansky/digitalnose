@@ -9,6 +9,7 @@ import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
+from contextlib import contextmanager, nullcontext
 
 from phase2.model import Observation
 from phase2.drivers import BME690Driver, SGP41Driver, SPS30Driver, ENS160Driver, Hardware, bme_class
@@ -49,6 +50,37 @@ class FakeSGP:
         return 2222, 3333
 
 
+class SimulatedClock:
+    def __init__(self):
+        self.now = 0.0
+        self.waits = []
+
+    def __call__(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.waits.append(seconds)
+        self.now += seconds
+
+
+class TimedSGP(FakeSGP):
+    def __init__(self, clock):
+        super().__init__()
+        self.clock, self.commands = clock, []
+
+    def command(self, kind):
+        self.commands.append((kind, self.clock()))
+        self.clock.now += 0.05  # Vendor command/readout time, not cadence.
+
+    def conditioning(self, **kwargs):
+        self.command('conditioning')
+        return super().conditioning(**kwargs)
+
+    def measure_raw(self, **kwargs):
+        self.command('raw')
+        return super().measure_raw(**kwargs)
+
+
 class Phase2(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -68,21 +100,72 @@ class Phase2(unittest.TestCase):
         self.boxes.append(box)
         return box
 
-    def test_bme_units_flags_and_repeat_measurement(self):
+    def test_bme_units_flags_and_fresh_repeated_zero_index(self):
         data = SimpleNamespace(temperature=21.5, humidity=45, pressure=1013.25,
-                               gas_resistance=12345, status=0xB0, heat_stable=True, gas_index=0, meas_index=5)
-        driver = BME690Driver(SimpleNamespace(data=data, get_sensor_data=lambda: True), 1)
+                               gas_resistance=10400, status=0xA0, heat_stable=False, gas_index=0, meas_index=0)
+        driver = BME690Driver(SimpleNamespace(data=data, get_sensor_data=lambda: True), 0)
         o = driver.read()
+        self.assertEqual((o.status, o.valid), ('warming_up', False))
         self.assertEqual(o.readings['pressure_pa'], 101325)
-        self.assertEqual(o.readings['gas_resistance_ohm'], 12345)
-        self.assertTrue(o.valid)
-        self.assertEqual(o.acquisition['mux_channel'], 1)
-        self.assertEqual(o.acquisition['measurement_index'], 5)
-        self.assertEqual(driver.read().status, 'invalid')
-        data.meas_index, data.heat_stable = 6, False
-        self.assertEqual(driver.read().status, 'warming_up')
-        data.meas_index, data.heat_stable, data.status = 7, True, 0x90
-        self.assertEqual(driver.read().status, 'invalid')
+        data.status, data.heat_stable = 0xB0, True
+        # Each True represents a new forced-mode/NEW_DATA-gated measurement.
+        # Equal resistance is also legitimate; value changes are not freshness.
+        for resistance in (5600, 6000, 6000, 20100):
+            data.gas_resistance = resistance
+            o = driver.read()
+            self.assertEqual((o.status, o.valid), ('ok', True))
+            self.assertEqual(o.readings['gas_resistance_ohm'], resistance)
+            self.assertEqual(o.acquisition['mux_channel'], 0)
+            self.assertEqual(o.acquisition['measurement_index'], 0)
+            self.assertTrue(o.acquisition['gas_valid'])
+            self.assertTrue(o.acquisition['heater_stable'])
+        for stable, gas_valid, expected in ((True, False, 'invalid'),
+                                            (False, True, 'warming_up'),
+                                            (False, False, 'warming_up')):
+            data.heat_stable = stable
+            data.status = 0x80 | (0x10 if stable else 0) | (0x20 if gas_valid else 0)
+            o = driver.read()
+            self.assertEqual((o.status, o.valid), (expected, False))
+
+    def test_bme_failed_read_never_reuses_cached_valid_data(self):
+        data = SimpleNamespace(temperature=21.5, humidity=45, pressure=1013.25,
+                               gas_resistance=6000, status=0xB0, heat_stable=True, gas_index=0, meas_index=0)
+        with patch.object(SimpleNamespace(), 'get_sensor_data', create=True,
+                          side_effect=[True, False, OSError('I2C failure'), True]) as read:
+            driver = BME690Driver(SimpleNamespace(data=data, get_sensor_data=read), 0)
+            self.assertTrue(driver.read().valid)
+            o = driver.read()
+            self.assertEqual((o.status, o.valid, o.readings), ('warming_up', False, {}))
+            with self.assertRaises(OSError):
+                driver.read()
+            self.assertTrue(driver.read().valid)
+            self.assertEqual(read.call_count, 4)
+
+    def test_bme_complete_read_holds_mux_lock(self):
+        class Bus:
+            mask = 0
+            def write_byte(self, address, mask):
+                self.mask = mask
+            def read_byte(self, address):
+                return self.mask
+        bus = Bus()
+        lock = str(self.root/'mux.lock')
+        hardware = Hardware({'type': 'bme690', 'mux_channel': 0}, {})
+        hardware.bus, hardware.mux = bus, Mux(bus, 0x70, lock)
+        data = SimpleNamespace(temperature=21.5, humidity=45, pressure=1013.25,
+                               gas_resistance=6000, status=0xB0, heat_stable=True, gas_index=0, meas_index=0)
+        def read():
+            self.assertEqual(bus.mask, 1)
+            with self.assertRaises(TimeoutError):
+                with file_lock(lock, timeout=0):
+                    pass
+            return True
+        hardware.driver = BME690Driver(SimpleNamespace(data=data, get_sensor_data=read), 0)
+        for _ in range(2):
+            self.assertTrue(hardware.read().valid)
+            self.assertEqual(bus.mask, 0)
+            with file_lock(lock, timeout=0):
+                pass
 
     def test_bme_waits_for_standard_heater_without_vendor_poll(self):
         calls, waits = [], []
@@ -116,24 +199,23 @@ class Phase2(unittest.TestCase):
         self.assertEqual(sensor.measurements[0], {'temperature': 25.0, 'humidity': 50.0})
         self.assertEqual(o.metadata['compensation_source'], 'manufacturer_default_25C_50pct')
 
-    def test_sgp_compensation_and_gap_reconditioning(self):
+    def test_sgp_compensation_and_gap_preserves_conditioning_start(self):
         clock, sensor = [0.0], FakeSGP()
         driver = SGP41Driver(sensor, 2, lambda: (22, 44, 'bme690_01', '2026-09-18T00:00:00.000000Z'), lambda: clock[0])
         o = driver.read()
         self.assertEqual(o.readings['compensation_temperature_c'], 25)
         self.assertEqual(o.metadata['compensation_source'], 'manufacturer_conditioning_defaults')
-        with self.assertRaises(RuntimeError):
-            driver.read()
         clock[0] = 5
         self.assertEqual(driver.read().status, 'warming_up')
-        self.assertEqual(sensor.off, 2)
-        for second in range(6, 16):
+        self.assertEqual(sensor.off, 1)
+        self.assertEqual(driver.started, 0)
+        for second in range(6, 11):
             clock[0] = second
             o = driver.read()
         self.assertEqual(o.readings['compensation_temperature_c'], 22)
         self.assertEqual(o.metadata['compensation_source'], 'bme690_01')
         driver.close()
-        self.assertEqual(sensor.off, 3)
+        self.assertEqual(sensor.off, 2)
 
     def test_sps30_float_order_status_and_warmup(self):
         clock = [0]
@@ -148,7 +230,7 @@ class Phase2(unittest.TestCase):
         self.assertEqual(o.readings['pm2_5_ug_m3'], 2)
         self.assertEqual(o.readings['number_pm0_5_cm3'], 5)
         self.assertEqual(o.readings['typical_particle_size_um'], 10)
-        sensor.read_device_status_register = lambda clear: (1, 0)
+        sensor.read_device_status_register = lambda clear: (1 << 4, 0)
         self.assertFalse(driver.read().valid)
         sensor.read_measurement_values_float = lambda: (1, 2)
         with self.assertRaises(ValueError):
@@ -353,16 +435,172 @@ class Phase2(unittest.TestCase):
         self.assertEqual(opener.open.call_args.kwargs['timeout'], 10)
         self.assertEqual(data['result'], 'accepted')
 
-    def test_sgp_does_not_start_measurement_before_ten_elapsed_seconds(self):
-        clock, sensor = [0.0], FakeSGP()
-        driver = SGP41Driver(sensor, 2, monotonic=lambda: clock[0])
+    def test_sgp_early_conditioning_call_waits_then_transitions_at_ten_seconds(self):
+        clock = SimulatedClock()
+        sensor = TimedSGP(clock)
+        driver = SGP41Driver(sensor, 3, monotonic=clock, sleep=clock.sleep)
         for i in range(10):
-            clock[0] = i * 0.99
-            driver.read()
-        clock[0] = 9.99
-        self.assertEqual(driver.read().status, 'warming_up')
+            clock.now = i * 0.99
+            self.assertEqual(driver.read().status, 'warming_up')
         self.assertEqual(len(sensor.conditions), 10)
         self.assertEqual(len(sensor.measurements), 0)
+        clock.now = 9.99
+        self.assertTrue(driver.read().valid)
+        self.assertEqual(sensor.commands[-1], ('raw', 10.0))
+        self.assertEqual(sensor.off, 1)
+
+    def test_sgp_jitter_early_and_delayed_commands_preserve_state(self):
+        clock = SimulatedClock()
+        sensor = TimedSGP(clock)
+        driver = SGP41Driver(sensor, 3, monotonic=clock, sleep=clock.sleep)
+        for second in range(11):
+            clock.now = float(second)
+            driver.read()
+        for at in (10.2, 12.03, 12.98, 14.04, 14.99, 18.5, 18.6, 19.7):
+            clock.now = max(clock.now, at)
+            self.assertTrue(driver.read().valid)
+        self.assertEqual(len(sensor.conditions), 10)
+        self.assertEqual((sensor.off, driver.started), (1, 0))
+        times = [t for _, t in sensor.commands]
+        self.assertTrue(all(b - a >= 1 for a, b in zip(times, times[1:])))
+        self.assertTrue(clock.waits)
+        self.assertEqual(driver.last_command_at, times[-1])
+
+    def test_sgp_command_time_follows_compensation_and_early_wakeup(self):
+        clock = SimulatedClock()
+        sensor = TimedSGP(clock)
+        def compensation():
+            clock.now += 0.2
+            return None
+        waits = []
+        def sleep(seconds):
+            waits.append(seconds)
+            # First sleep wakes prematurely; the guard must check again.
+            clock.now += seconds / 2 if len(waits) == 1 else seconds
+        driver = SGP41Driver(sensor, 3, compensation, clock, sleep)
+        driver.read()
+        self.assertEqual(driver.last_command_at, 0.2)
+        driver.read()
+        self.assertEqual(len(waits), 2)
+        self.assertEqual(sensor.commands, [('conditioning', 0.2), ('conditioning', 1.2)])
+
+    def test_sgp_early_wait_does_not_hold_mux_but_commands_do(self):
+        clock = SimulatedClock()
+        sensor = TimedSGP(clock)
+        lock = str(self.root/'sgp-mux.lock')
+        class Bus:
+            mask = 0
+            def write_byte(self, address, mask):
+                self.mask = mask
+            def read_byte(self, address):
+                return self.mask
+        bus = Bus()
+        def sleep(seconds):
+            self.assertEqual(bus.mask, 0)
+            with file_lock(lock, timeout=0):
+                clock.sleep(seconds)
+        driver = SGP41Driver(sensor, 3, monotonic=clock, sleep=sleep)
+        hardware = Hardware({'type': 'sgp41', 'mux_channel': 3}, {})
+        hardware.driver, hardware.bus, hardware.mux = driver, bus, Mux(bus, 0x70, lock)
+        original = sensor.command
+        def command(kind):
+            self.assertEqual(bus.mask, 8)
+            with self.assertRaises(TimeoutError):
+                with file_lock(lock, timeout=0):
+                    pass
+            original(kind)
+        sensor.command = command
+        hardware.read()
+        hardware.read()  # Immediate caller; wait outside lock, then select CH3.
+        self.assertEqual(bus.mask, 0)
+        self.assertEqual(sensor.commands, [('conditioning', 0.0), ('conditioning', 1.0)])
+
+    def test_sgp_genuine_i2c_and_crc_exceptions_are_persisted_as_errors(self):
+        for error in (OSError('I2C failure'), RuntimeError('CRC check failed')):
+            with self.subTest(error=type(error).__name__):
+                clock = SimulatedClock()
+                sensor = TimedSGP(clock)
+                driver = SGP41Driver(sensor, 3, monotonic=clock, sleep=clock.sleep)
+                driver.read()
+                clock.now = 10
+                driver.read()
+                clock.now = 11
+                box = Outbox(self.root/(type(error).__name__+'.db'), 'collector-1', 'sgp41_01', 'sgp41')
+                self.boxes.append(box)
+                with patch.object(sensor, 'measure_raw', side_effect=error), patch('phase2.runtime.log'):
+                    observation = Acquisition('sgp41_01', 'sgp41', driver, box, 3).step()
+                self.assertEqual((observation.status, observation.valid, observation.error_code),
+                                 ('error', False, type(error).__name__))
+                self.assertEqual(observation.readings, {})
+                self.assertEqual(json.loads(box.next(0)['body'])['error_code'], type(error).__name__)
+                self.assertEqual(driver.last_command_at, 11)
+                self.assertEqual(sensor.off, 2)  # Genuine error recovery still closes the sensor.
+
+    def test_sgp_delayed_conditioning_call_does_not_extend_or_restart_sequence(self):
+        clock = SimulatedClock()
+        sensor = TimedSGP(clock)
+        driver = SGP41Driver(sensor, 3, monotonic=clock, sleep=clock.sleep)
+        driver.read()
+        clock.now = 5
+        self.assertEqual(driver.read().status, 'warming_up')
+        clock.now = 10
+        self.assertTrue(driver.read().valid)
+        self.assertEqual(sensor.commands, [('conditioning', 0.0), ('conditioning', 5), ('raw', 10)])
+        self.assertEqual(sensor.off, 1)
+        self.assertEqual(driver.started, 0)
+
+    def test_sgp_scheduler_mux_jitter_runs_for_several_minutes(self):
+        clock = SimulatedClock()
+        sensor = TimedSGP(clock)
+        driver = SGP41Driver(sensor, 3, monotonic=clock, sleep=clock.sleep)
+        hardware = Hardware({'type': 'sgp41', 'mux_channel': 3}, {})
+        hardware.driver = driver
+        lock_delays = iter([0.365, 0.103] + [0.0, 0.27, 0.01, 0.51] * 100)
+        @contextmanager
+        def selected():
+            clock.now += next(lock_delays)
+            yield
+        observations = []
+        class Box:
+            identifier = 'collector-1'
+            def has_capacity(self):
+                return True
+            def enqueue(self, observation):
+                observations.append(observation)
+                if len(observations) in (60, 120):
+                    clock.now += 3.25  # Host/persistence stall, not sensor failure.
+                return len(observations)
+            def stats(self):
+                return {}
+            def close(self):
+                pass
+        class Stop:
+            def is_set(self):
+                return len(observations) >= 240
+            def wait(self, seconds):
+                clock.now += seconds
+        config = {'sensors': {'sgp41_01': {'type': 'sgp41', 'mux_channel': 3, 'interval_seconds': 1}}}
+        with patch.object(hardware, '_context', selected), \
+             patch.object(hardware, '_initialize') as initialize, \
+             patch('phase2.runtime.time.monotonic', clock), \
+             patch('phase2.runtime.deadline', side_effect=lambda: nullcontext()), \
+             patch('phase2.runtime.log') as log:
+            collect(config, 'sgp41_01', hardware, Box(), Stop())
+        initialize.assert_not_called()
+        self.assertGreater(clock.now, 240)
+        self.assertEqual(sensor.off, 2)  # Initialization and final shutdown only.
+        first_ok = next(i for i, o in enumerate(observations) if o.valid)
+        self.assertTrue(all(o.status == 'warming_up' for o in observations[:first_ok]))
+        self.assertTrue(all(o.status == 'ok' and o.valid for o in observations[first_ok:]))
+        self.assertLessEqual(len(sensor.conditions), 10)
+        times = [t for _, t in sensor.commands]
+        self.assertTrue(all(b - a >= 1 - 1e-12 for a, b in zip(times, times[1:])))
+        self.assertTrue(any(b - a > 2 for a, b in zip(times, times[1:])))
+        # The existing logger includes lock waiting and conversion in duration_ms.
+        durations = [call.kwargs['duration_ms'] for call in log.call_args_list
+                     if call.args[0] == 'acquisition']
+        self.assertEqual(durations[0], 415.0)
+        self.assertTrue(all(o.error_code == '' for o in observations))
 
     def test_byte_budget_exhaustion_retains_first_payload(self):
         box = self.box(max_bytes=400)

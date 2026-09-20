@@ -66,3 +66,24 @@ Thumbs.db
 *~
 *.swp
 *.swo
+
+# Private reference snapshots and runtime/deployment artifacts
+/pi-running-phase1/
+*.backup.*
+*.new
+*.bak
+*.tmp
+*.db.*
+*.dump
+/backups/
+/data/
+/outboxes/
+/phase2-lifecycle-stage/
+**/phase2.before-lifecycle-*/
+**/phase2-lifecycle-stage/
+*.environment.json
+*.acquire.lock
+*.publish.lock
+
+# Generated agent workspace files
+/CLAUDE.md

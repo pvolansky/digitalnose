@@ -10,7 +10,7 @@
     "ens160_01": {"type": "ens160", "enabled": false, "interval_seconds": 5},
     "bme690_01": {"type": "bme690", "enabled": false, "mux_channel": 0, "address": 118, "interval_seconds": 1},
     "bme690_02": {"type": "bme690", "enabled": false, "mux_channel": 1, "address": 118, "interval_seconds": 1},
-    "sgp41_01": {"type": "sgp41", "enabled": false, "mux_channel": 2, "address": 89, "interval_seconds": 1},
+    "sgp41_01": {"type": "sgp41", "enabled": false, "mux_channel": 3, "address": 89, "interval_seconds": 1},
     "sps30_01": {"type": "sps30", "enabled": false, "connection": "usb", "serial_port": "/dev/serial/by-id/REPLACE_WHEN_HARDWARE_ARRIVES", "interval_seconds": 1}
   }
 }

@@ -22,7 +22,7 @@ Software preparation does not establish hardware readiness. BME690/SGP41 are ava
 18. Give BME690 #2 its own sensor key, acquisition state and outbox stream. Never merge the two sensors' observations.
 19. Verify separately identifiable database rows, both chart series, toggles and independent failure/recovery.
 20. Power OFF.
-21. Connect SGP41 on another channel, initially CH2.
+21. Connect SGP41 on another channel, initially CH3.
 22. Boot and verify sensor detection, raw VOC/NOx, conditioning and compensation inputs against the official driver/interface.
 23. Preserve raw tick signals; do not substitute VOC/NOx indices. Record conditioning with invalid-for-analysis state, and allow absent NOx during conditioning.
 24. Verify independent ingestion and automatic WARMING UP/LIVE transitions. Simulate an acquisition failure in a controlled manner and verify ENS160 and both BME streams continue.

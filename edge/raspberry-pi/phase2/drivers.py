@@ -43,9 +43,13 @@ def bme_class(module, sleep=time.sleep):
 class BME690Driver(SensorDriver):
     def __init__(self, sensor, channel):
         self.sensor, self.channel = sensor, channel
-        self.last_index = None
 
     def read(self):
+        # Pinned bme690 1.0.0 triggers FORCED_MODE and returns True only after
+        # NEW_DATA-gated FIELD0 readout. This is the freshness gate; never reuse
+        # cached .data on False. meas_index is ordering metadata, not a counter
+        # guaranteed to advance across forced-mode calls (it can remain zero).
+        # Hardware.read holds the mux lock across the trigger, wait and readout.
         if not self.sensor.get_sensor_data():
             return Observation({}, 'warming_up', False, acquisition={'mux_channel': self.channel})
         d = self.sensor.data
@@ -56,31 +60,34 @@ class BME690Driver(SensorDriver):
                        'measurement_index': d.meas_index, 'heater_profile_id': 'pimoroni-standard-320C-150ms',
                        'heater_target_temperature_c': 320, 'heater_duration_ms': 150,
                        'driver_version': 'bme690/1.0.0+digitalnose-standard-wait'}
-        duplicate = self.last_index == d.meas_index
-        self.last_index = d.meas_index
-        status = ('invalid' if duplicate else 'warming_up' if not d.heat_stable
+        status = ('warming_up' if not d.heat_stable
                   else 'invalid' if not acquisition['gas_valid'] else 'ok')
         return Observation(readings, status, status == 'ok', acquisition=acquisition,
                            metadata={'heater_values': 'configured targets, not measured heater temperature'})
 
 
 class SGP41Driver(SensorDriver):
-    def __init__(self, sensor, channel, compensation=lambda: None, monotonic=time.monotonic):
+    def __init__(self, sensor, channel, compensation=lambda: None, monotonic=time.monotonic,
+                 sleep=time.sleep):
         self.sensor, self.channel, self.compensation, self.clock = sensor, channel, compensation, monotonic
+        self.sleep = sleep
         self.started = None
         self.count = 0
-        self.last_call = None
+        self.last_command_at = None
         # Targeted heater-off, never the vendor's general-call bus reset.
         self.sensor.heater_off()
 
+    def wait_until_ready(self):
+        # collect() owns nominal cadence. This is only a command-spacing guard:
+        # MUX/OS jitter can compress otherwise one-second acquisition slots.
+        # Recheck after sleeping in case the wait returns early.
+        while self.last_command_at is not None:
+            remaining = self.last_command_at + 1.0 - self.clock()
+            if remaining <= 0:
+                break
+            self.sleep(remaining)
+
     def read(self):
-        now = self.clock()
-        if self.last_call is not None and now - self.last_call < 0.9:
-            raise RuntimeError('SGP41 called faster than 1 Hz')
-        if self.last_call is not None and now - self.last_call > 2:
-            self.sensor.heater_off()
-            self.started, self.count = None, 0
-        self.last_call = now
         source = self.compensation()
         if source:
             temperature, humidity, key, observed_at = source
@@ -89,6 +96,8 @@ class SGP41Driver(SensorDriver):
             # Sensirion/Adafruit documented default inputs (not measured environment).
             temperature, humidity = 25.0, 50.0
             meta = {'compensation_source': 'manufacturer_default_25C_50pct'}
+        self.wait_until_ready()
+        now = self.clock()
         if self.started is None:
             self.started = now
         conditioning = now - self.started < 10
@@ -98,11 +107,16 @@ class SGP41Driver(SensorDriver):
             temperature, humidity = 25.0, 50.0
             meta = {'compensation_source': 'manufacturer_conditioning_defaults'}
         readings = {'compensation_temperature_c': temperature, 'compensation_humidity_pct': humidity}
+        # Timestamp actual vendor command dispatch, not entry to read() or the
+        # scheduler slot. Record attempts too: an I2C failure may follow a write.
+        # Exceptions still propagate to Acquisition's existing error recovery.
         if conditioning:
             if self.count < 10:
+                self.last_command_at = self.clock()
                 readings['raw_voc_ticks'] = self.sensor.conditioning(humidity=humidity, temperature=temperature)
                 self.count += 1
         else:
+            self.last_command_at = self.clock()
             readings['raw_voc_ticks'], readings['raw_nox_ticks'] = self.sensor.measure_raw(
                 humidity=humidity, temperature=temperature)
         return Observation(readings, 'warming_up' if conditioning else 'ok', not conditioning,
@@ -136,7 +150,10 @@ class SPS30Driver(SensorDriver):
             observation.error_code = 'status_read_failed'
             return observation
         observation.acquisition = {'device_status': int(flags), 'driver_version': 'sensirion-uart-sps30/1.0.0'}
-        if flags:
+        # Sensirion SPS30 datasheet 4.4: only SPEED(21), LASER(5), FAN(4)
+        # are public status bits. Reserved bits (including bit 20) may be 1.
+        # Keep the complete raw register diagnostic; ignore reserved bits.
+        if int(flags) & ((1 << 21) | (1 << 5) | (1 << 4)):
             observation.status, observation.valid = 'invalid', False
         return observation
 
@@ -149,6 +166,7 @@ class Hardware(SensorDriver):
     def __init__(self, config, root, compensation=lambda: None):
         self.config, self.root, self.compensation = config, root, compensation
         self.driver = self.bus = self.transport = self.mux = None
+        self.last_timings = {}
 
     def _context(self):
         if self.config['type'] not in ('bme690', 'sgp41'):
@@ -161,10 +179,26 @@ class Hardware(SensorDriver):
         return self.mux.selected(self.config['mux_channel'])
 
     def read(self):
-        with self._context():
-            if self.driver is None:
-                self._initialize()
-            return self.driver.read()
+        self.last_timings = {'cadence_wait_ms': 0.0, 'mux_wait_ms': 0.0, 'sensor_io_ms': 0.0}
+        started = time.monotonic()
+        try:
+            if self.config['type'] == 'sgp41' and self.driver is not None:
+                # Wait outside the shared MUX; adapter rechecks under the lock.
+                self.driver.wait_until_ready()
+        finally:
+            self.last_timings['cadence_wait_ms'] = round((time.monotonic() - started) * 1000, 3)
+        try:
+            with self._context():
+                started = time.monotonic()
+                try:
+                    if self.driver is None:
+                        self._initialize()
+                    return self.driver.read()
+                finally:
+                    self.last_timings['sensor_io_ms'] = round((time.monotonic() - started) * 1000, 3)
+        finally:
+            if self.mux is not None:
+                self.last_timings['mux_wait_ms'] = self.mux.last_wait_ms
 
     def _initialize(self):
         kind = self.config['type']

@@ -8,6 +8,33 @@ class QueueFull(RuntimeError):
     pass
 
 
+def read_queue_status(path, identifier, sensor_key, sensor_type):
+    """One short read of an existing queue; never initialize or reconfigure it.
+
+    A rollback-journal reader still briefly takes a SHARED lock. Avoid adding
+    a writer and fail promptly if busy; callers must not spin/retry in bulk.
+    Do not use immutable=1: live workers are allowed to change this database.
+    """
+    uri = Path(path).resolve().as_uri() + '?mode=ro'
+    db = sqlite3.connect(uri, uri=True, timeout=0.05, isolation_level=None)
+    try:
+        db.row_factory = sqlite3.Row
+        db.execute('PRAGMA query_only=ON').close()
+        cursor = db.execute('''SELECT identifier,sensor_key,sensor_type,
+                              next_seq,queued_rows,queued_bytes
+                              FROM identity WHERE singleton=1''')
+        try:
+            saved = cursor.fetchone()
+        finally:
+            cursor.close()
+        if saved is None or (saved['identifier'], saved['sensor_key'], saved['sensor_type']) != (
+                identifier, sensor_key, sensor_type):
+            raise ValueError('Outbox belongs to another collector/sensor; never reuse it')
+        return {key: saved[key] for key in ('next_seq', 'queued_rows', 'queued_bytes')}
+    finally:
+        db.close()
+
+
 class Outbox:
     def __init__(self, path, identifier, sensor_key, sensor_type, max_rows=100000,
                  max_bytes=128 * 1024 * 1024, max_db_bytes=256 * 1024 * 1024):

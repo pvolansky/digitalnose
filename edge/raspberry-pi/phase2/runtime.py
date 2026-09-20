@@ -23,12 +23,14 @@ def log(event, key, kind, **fields):
 
 @contextmanager
 def deadline(seconds=3):
+    state = {'expired': False}
     def expired(_signal, _frame):
+        state['expired'] = True
         raise TimeoutError('Driver deadline exceeded')
     previous = signal.signal(signal.SIGALRM, expired)
     signal.setitimer(signal.ITIMER_REAL, seconds)
     try:
-        yield
+        yield state
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous)
@@ -63,50 +65,123 @@ def save_environment(config, key, observation):
     os.replace(temp, dest)
 
 
+def storage_error(exc):
+    # Python <3.11 does not expose SQLite extended codes: null means unavailable.
+    return dict(error_domain='storage', error_type=type(exc).__name__,
+                sqlite_errorcode=getattr(exc, 'sqlite_errorcode', None),
+                sqlite_errorname=getattr(exc, 'sqlite_errorname', None))
+
+
 class Acquisition:
     def __init__(self, key, kind, driver, box, channel=None):
         self.key, self.kind, self.driver, self.box, self.channel = key, kind, driver, box, channel
         self.pending = None
+        self.storage_failures = 0
+        self.pending_since = None
+
+    def recover_hardware(self, reason):
+        started = time.monotonic()
+        close_error = None
+        try:
+            with deadline():
+                self.driver.close()
+        except Exception as exc:
+            close_error = type(exc).__name__
+        log('hardware_recovery', self.key, self.kind, error_domain='hardware',
+            reason=reason, recovery_action='close_for_lazy_reinitialize',
+            recovery_ms=round((time.monotonic() - started) * 1000, 3),
+            close_error=close_error)
+
+    def persist_pending(self):
+        if self.pending is None:
+            return None
+        started = time.monotonic()
+        try:
+            # No SIGALRM around SQLite. Its own busy timeout bounds lock waits;
+            # filesystem stalls are not relabelled as sensor faults.
+            seq = self.box.enqueue(self.pending)
+        except (QueueFull, sqlite3.Error, OSError) as exc:
+            self.storage_failures += 1
+            log('persistence_retry', self.key, self.kind,
+                persistence_ms=round((time.monotonic() - started) * 1000, 3),
+                persistence_retry=self.storage_failures, storage_operation='enqueue',
+                pending_observed_at=self.pending.observed_at, **storage_error(exc))
+            raise
+        observation, self.pending = self.pending, None
+        # Clear pending immediately after commit, BEFORE any logging/diagnostics.
+        # Do not perform a fallible stats query after commit and retry the insert.
+        log('persisted', self.key, self.kind, sequence_number=seq,
+            persistence_ms=round((time.monotonic() - started) * 1000, 3),
+            persistence_wait_ms=round((time.monotonic() - self.pending_since) * 1000, 3),
+            persistence_retry=self.storage_failures, observed_at=observation.observed_at)
+        self.storage_failures = 0
+        self.pending_since = None
+        return observation
 
     def step(self):
         if self.pending is None:
-            if not self.box.has_capacity():
-                raise QueueFull('Acquisition paused before next physical read')
-            started = time.monotonic()
+            # Storage preflight is outside the sensor-operation deadline too.
+            preflight = time.monotonic()
             try:
-                self.pending = self.driver.read()
+                if not self.box.has_capacity():
+                    raise QueueFull('Acquisition paused before next physical read')
+            except (QueueFull, sqlite3.Error, OSError) as exc:
+                log('storage_preflight_failed', self.key, self.kind,
+                    storage_operation='capacity',
+                    persistence_ms=round((time.monotonic() - preflight) * 1000, 3),
+                    **storage_error(exc))
+                raise
+            started = time.monotonic()
+            timer = None
+            hardware_error = None
+            try:
+                with deadline() as timer:
+                    self.pending = self.driver.read()
                 if not isinstance(self.pending, Observation):
                     raise ValueError('Malformed driver result')
                 self.pending.payload(self.box.identifier, self.key, self.kind, 0)
+                if self.pending.status == 'error':
+                    hardware_error = self.pending.error_code or 'driver_error'
             except ValueError:
                 self.pending = Observation({}, 'invalid', False, error_code='malformed_driver_result')
             except Exception as exc:
-                self.pending = Observation({}, 'error', False, error_code=type(exc).__name__)
-                try:
-                    self.driver.close()
-                except Exception:
-                    pass
+                hardware_error = type(exc).__name__
+                self.pending = Observation({}, 'error', False, error_code=hardware_error)
+            self.pending_since = time.monotonic()
             if self.channel is not None:
                 self.pending.acquisition['mux_channel'] = self.channel
             log('acquisition', self.key, self.kind, mux_channel=self.channel,
                 duration_ms=round((time.monotonic() - started) * 1000, 3),
-                status=self.pending.status, valid=self.pending.valid, driver_error=self.pending.error_code or None)
-        # If persistence fails, retain the same in-memory observation and do not
-        # collect another until it is safely written. No new timestamp on retry.
-        seq = self.box.enqueue(self.pending)
-        observation, self.pending = self.pending, None
-        log('persisted', self.key, self.kind, sequence_number=seq, **self.box.stats())
-        return observation
+                status=self.pending.status, valid=self.pending.valid,
+                driver_error=self.pending.error_code or None,
+                error_domain='hardware' if hardware_error else None,
+                sensor_deadline_expired=bool(timer and timer['expired']),
+                **getattr(self.driver, 'last_timings', {}))
+            if hardware_error:
+                self.recover_hardware(hardware_error)
+        # Retain the exact object/timestamp across retries; never read over it.
+        return self.persist_pending()
 
     def close(self):
         try:
-            self.driver.close()
+            with deadline():
+                self.driver.close()
         finally:
             self.box.close()
 
 
 def open_box(config, key, collector):
-    return Outbox(state_path(config, key), collector, key, config['sensors'][key]['type'], **config['outbox'])
+    started = time.monotonic()
+    kind = config['sensors'][key]['type']
+    try:
+        box = Outbox(state_path(config, key), collector, key, kind, **config['outbox'])
+    except (sqlite3.Error, OSError) as exc:
+        log('storage_initialization_failed', key, kind, storage_operation='open',
+            persistence_ms=round((time.monotonic() - started) * 1000, 3), **storage_error(exc))
+        raise
+    log('storage_initialized', key, kind, storage_operation='open',
+        persistence_ms=round((time.monotonic() - started) * 1000, 3))
+    return box
 
 
 def stop_event():
@@ -120,41 +195,44 @@ def collect(config, key, driver, box, stop):
     item = config['sensors'][key]
     runner = Acquisition(key, item['type'], driver, box, item.get('mux_channel'))
     due = time.monotonic()
+    failures = 0
     try:
         while not stop.is_set():
             try:
-                with deadline():
-                    observation = runner.step()
+                observation = runner.step()
+                failures = 0
                 if item['type'] == 'bme690':
                     try:
                         save_environment(config, key, observation)
                     except OSError:
                         log('compensation_cache_unavailable', key, item['type'])
             except (QueueFull, sqlite3.Error, OSError) as exc:
-                log('storage_backpressure', key, item['type'], driver_error=type(exc).__name__)
-                # In particular, do not leave SGP41 in conditioning while
-                # acquisition waits for disk space. Restart cleanly on resume.
-                try:
-                    with deadline():
-                        driver.close()
-                except Exception:
-                    log('backpressure_driver_close_failed', key, item['type'])
-                stop.wait(5)
+                failures += 1
+                backoff = min(5.0, 0.25 * 2 ** min(failures - 1, 5))
+                log('storage_backpressure', key, item['type'], retry_count=failures,
+                    retry_delay_seconds=backoff, pending=runner.pending is not None,
+                    **storage_error(exc))
+                # No close/reset: storage owns neither hardware nor conditioning.
+                stop.wait(backoff)
                 due = time.monotonic()
+                continue
             due += item['interval_seconds']
             if due < time.monotonic():
                 # Skip missed slots rather than burst-reading after a delay.
                 due = time.monotonic() + item['interval_seconds']
             stop.wait(max(0, due - time.monotonic()))
     finally:
-        if runner.pending is not None:
+        # A graceful stop must not voluntarily discard a pending measurement.
+        # SIGKILL/power loss can still lose RAM; systemd's stop timeout applies.
+        while runner.pending is not None:
             try:
-                box.enqueue(runner.pending)
-            except (sqlite3.Error, QueueFull, ValueError):
-                log('unpersisted_observation_on_shutdown', key, item['type'])
+                runner.persist_pending()
+            except (sqlite3.Error, QueueFull, OSError) as exc:
+                log('shutdown_pending_storage', key, item['type'],
+                    pending_observed_at=runner.pending.observed_at, **storage_error(exc))
+                time.sleep(min(5.0, 0.25 * 2 ** min(runner.storage_failures - 1, 5)))
         try:
-            with deadline():
-                runner.close()
+            runner.close()
         except Exception as exc:
             log('shutdown_error', key, item['type'], driver_error=type(exc).__name__)
         log('stopped', key, item['type'])
@@ -170,7 +248,7 @@ def publish(config, key, box, url, credential, stop):
                 else:
                     stop.wait(1)
             except sqlite3.Error as exc:
-                log('outbox_unavailable', key, config['sensors'][key]['type'], driver_error=type(exc).__name__)
+                log('outbox_unavailable', key, config['sensors'][key]['type'], **storage_error(exc))
                 stop.wait(5)
     finally:
         box.close()
