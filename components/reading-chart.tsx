@@ -1,4 +1,5 @@
 'use client';
+import { ChartTimeSlider } from './chart-time-slider';
 import { useState, useEffect, useRef, useId, useMemo, useDeferredValue } from 'react';
 import { createPortal } from 'react-dom';
 import { LuRadio, LuWind, LuUserRound, LuMessageCircle, LuTrendingUp } from 'react-icons/lu';
@@ -292,7 +293,7 @@ export function ReadingChart({
     <section className="panel history-panel" aria-labelledby={`${id}-title`}>
       <div className="row spread chart-heading">
         <div>
-          <h2 id={`${id}-title`}>Air readings over time</h2>
+          <h2 id={`${id}-title`}>ENS160</h2>
           <p className="chart-heading-summary">
             Smell reports, room activity and weather alongside sensor readings.
           </p>
@@ -728,6 +729,21 @@ export function ReadingChart({
           )}
         </svg>
       </div>
+      <ChartTimeSlider
+        label="ENS160"
+        start={start}
+        end={end}
+        at={selectedAt}
+        onSelect={setSelectedAt}
+      >
+        <span className="muted">{localTime(at)}</span>
+        {(combined ? keys : [metric]).map((key) => (
+          <div key={key}>
+            <strong>{metrics[key].label}</strong>:{' '}
+            {reading ? displayValue(Number(reading[key])) : '—'} {metrics[key].unit}
+          </div>
+        ))}
+      </ChartTimeSlider>
       {tooltip &&
         createPortal(
           <div
@@ -805,103 +821,6 @@ export function ReadingChart({
           </div>,
           document.body,
         )}
-      <details className="timeline-details">
-        <summary>
-          Explore recorded events{' '}
-          <span className="muted">
-            ({visibleReports.length} reports ·{' '}
-            {events.filter((e) => Date.parse(e.recorded_at) >= start).length} context changes)
-          </span>
-        </summary>
-        <div className="event-list">
-          {[
-            ...visibleReports.map((r) => ({
-              id: r.id,
-              time: r.reported_at,
-              label: `${r.smell_type || 'Smell report'} · intensity ${r.intensity}/5`,
-              kind: 'report',
-            })),
-            ...events
-              .filter((e) => Date.parse(e.recorded_at) >= start && Date.parse(e.recorded_at) <= end)
-              .map((e) => ({
-                id: e.id,
-                time: e.recorded_at,
-                label:
-                  e.event_type === 'maintenance'
-                    ? e.value
-                      ? 'Maintenance started'
-                      : 'Maintenance ended'
-                    : e.event_type === 'window_open'
-                      ? e.value
-                        ? 'Window opened'
-                        : 'Window closed'
-                      : e.value
-                        ? 'Resident entered the room'
-                        : 'Resident left the room',
-                kind: e.event_type,
-              })),
-          ]
-            .sort((a, b) => b.time.localeCompare(a.time))
-            .map((e) => (
-              <button
-                className="event-item secondary"
-                key={e.id}
-                onClick={() => inspectMoment(Date.parse(e.time))}
-              >
-                <span className={`event-dot ${e.kind}`} />
-                {e.label}
-                <time dateTime={e.time}>{localTime(Date.parse(e.time))}</time>
-              </button>
-            ))}
-          {!visibleReports.length && !events.some((e) => Date.parse(e.recorded_at) >= start) && (
-            <p className="muted">No events recorded in this range.</p>
-          )}
-        </div>
-      </details>
-      {!!readings.length && (
-        <details className="timeline-details">
-          <summary>View latest 60 readings as a table</summary>
-          <div className="readings-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Local time</th>
-                  <th>TVOC ppb</th>
-                  <th>eCO₂ ppm</th>
-                  <th>AQI</th>
-                  <th>Samples</th>
-                </tr>
-              </thead>
-              <tbody>
-                {readings
-                  .slice(-60)
-                  .reverse()
-                  .map((r) => (
-                    <tr key={r.id}>
-                      <td>{localTime(Date.parse(r.minute_start_utc))}</td>
-                      <td>
-                        {isMaintenanceMinute(events, Date.parse(r.minute_start_utc))
-                          ? 'Maintenance'
-                          : r.tvoc_mean}
-                      </td>
-                      <td>
-                        {isMaintenanceMinute(events, Date.parse(r.minute_start_utc))
-                          ? '—'
-                          : r.eco2_mean}
-                      </td>
-                      <td>
-                        {isMaintenanceMinute(events, Date.parse(r.minute_start_utc))
-                          ? '—'
-                          : r.aqi_max}
-                      </td>
-                      <td>{r.sample_count}/12</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      )}
       {!readings.length && (
         <p className="muted empty-chart">
           <LuRadio aria-hidden="true" /> Context and reports are still available while your sensor

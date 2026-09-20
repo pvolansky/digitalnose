@@ -2,12 +2,12 @@
 import { useEffect, useId, useState, useRef, type ReactNode } from 'react';
 import { browserClient } from '@/lib/supabase/client';
 import {
-  sensorHealth,
   loadSensorArray,
   type SensorArrayData,
   type Sensor,
   type Bucket,
 } from '@/lib/sensors/data';
+import { ChartTimeSlider } from './chart-time-slider';
 import { MetricInfo } from './metric-info';
 import { isSensorMetric } from '@/lib/sensors/metric-info';
 import { bucketGroups, metricLabels } from '@/lib/sensors/charts';
@@ -100,6 +100,43 @@ export function SensorPlot({
   const y = (n: number) => 180 - ((n - lo) / (top - lo)) * 140;
   const never = sensors.length > 0 && sensors.every((s) => !s.last_valid_reading_at);
   const at = shared.selectedAt;
+  const [hover, setHover] = useState(false);
+  const inspect = (clientX: number, element: SVGSVGElement) => {
+    const r = element.getBoundingClientRect();
+    shared.onSelect(
+      shared.start +
+        Math.max(0, Math.min(1, (((clientX - r.left) * width) / r.width - left) / (right - left))) *
+          (shared.end - shared.start),
+    );
+  };
+  const selected = at ?? shared.end;
+  const details = (
+    <>
+      <span className="muted">{local(selected, shared.timezone)}</span>
+      {visible.map((s) => {
+        const candidates = usable.filter(
+          (p) => p.sensor_id === s.sensorId && p.metric === s.metric,
+        );
+        const point = candidates.find(
+          (p) =>
+            selected >= Date.parse(p.first_observed_at) &&
+            selected <= Date.parse(p.last_observed_at),
+        );
+        return (
+          <div key={s.id}>
+            <strong>{s.label}</strong>:{' '}
+            {point ? `mean ${display(point.mean)} ${unit}` : 'No reading at this time'}
+            {point && (
+              <small>
+                {' '}
+                · min {display(point.min)} · max {display(point.max)}
+              </small>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
   return (
     <section ref={plotRef} className="sensor-plot" aria-labelledby={id}>
       <div className="row spread">
@@ -145,6 +182,15 @@ export function SensorPlot({
           role="group"
           tabIndex={0}
           aria-label={`${title}, ${unit}. Click or use arrow keys to inspect a moment.`}
+          onPointerMove={(e) => {
+            if (e.pointerType !== 'touch') {
+              setHover(true);
+              inspect(e.clientX, e.currentTarget);
+            }
+          }}
+          onPointerLeave={() => setHover(false)}
+          onBlur={() => setHover(false)}
+          onFocus={() => setHover(true)}
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             shared.onSelect(
@@ -157,6 +203,7 @@ export function SensorPlot({
             );
           }}
           onKeyDown={(e) => {
+            if (e.key === 'Escape') setHover(false);
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
               e.preventDefault();
               shared.onSelect(
@@ -294,12 +341,27 @@ export function SensorPlot({
           </text>
         </svg>
       )}
+      {hover && (
+        <div className="sensor-value-tooltip" role="tooltip">
+          {details}
+        </div>
+      )}
+      {!!usable.length && (
+        <ChartTimeSlider
+          label={title}
+          start={shared.start}
+          end={shared.end}
+          at={at}
+          onSelect={shared.onSelect}
+        >
+          {details}
+        </ChartTimeSlider>
+      )}
     </section>
   );
 }
 export function SensorAnalysis({
   data,
-  now,
   updating,
   refreshError = false,
   particulateControls,
@@ -318,15 +380,13 @@ export function SensorAnalysis({
 }) {
   if (!data)
     return (
-      <section className="panel" aria-label="Sensor analysis" aria-busy="true">
-        <h2>Sensor analysis</h2>
+      <section className="sensor-analysis" aria-label="Sensor analysis" aria-busy="true">
         <p role="status">Loading sensor analysis…</p>
       </section>
     );
   if (data.unavailable)
     return (
-      <section className="panel" aria-label="Sensor analysis">
-        <h2>Sensor analysis</h2>
+      <section className="sensor-analysis" aria-label="Sensor analysis">
         <p role="status">
           Sensor analysis is temporarily unavailable. Existing air readings remain available.
         </p>
@@ -338,7 +398,6 @@ export function SensorAnalysis({
   if (!data.sensors.length)
     return (
       <section className="panel">
-        <h2>Sensor array</h2>
         <p className="muted">No sensor array registered for this collector.</p>
       </section>
     );
@@ -357,47 +416,33 @@ export function SensorAnalysis({
     sps = ofType('sps30');
   const primary = bme.find((s) => s.metadata.environment_primary === true) ?? bme[0];
   return (
-    <section className="panel sensor-analysis" aria-label="Sensor analysis" aria-busy={updating}>
-      <div className="row spread">
-        <div>
-          <p className="eyebrow">Sensor array</p>
-          <h2>Sensor analysis</h2>
-        </div>
-        <div className="sensor-refresh-status" role="status">
-          {refreshError ? (
-            <button className="secondary" onClick={onRetry} disabled={updating}>
-              Retry update
-            </button>
-          ) : (
-            <span className="muted">{updating ? 'Updating…' : ''}</span>
-          )}
-        </div>
-      </div>
-      {refreshError && (
-        <p className="muted">
-          Updates are temporarily unavailable. Last loaded sensor data is shown.
-        </p>
-      )}
-      <div className="sensor-status-grid">
-        {data.sensors.map((s) => (
-          <div key={s.id}>
-            <strong>{s.label}</strong>
-            <span className="tag">{sensorHealth(s, now).replaceAll('_', ' ')}</span>
-            <small className="muted">
-              {s.last_valid_reading_at
-                ? `Last valid: ${local(Date.parse(s.last_valid_reading_at), shared.timezone)}`
-                : 'Awaiting first valid reading'}
-              {!s.enabled ? ' · Disabled' : ''}
-            </small>
-            {s.latest_observation?.last_error && <small>{s.latest_observation.last_error}</small>}
+    <section className="sensor-analysis" aria-label="Sensor analysis" aria-busy={updating}>
+      {(refreshError || updating) && (
+        <div className="row spread">
+          <div className="sensor-refresh-status" role="status">
+            {refreshError ? (
+              <span className="row">
+                <span className="muted">Update failed · showing last loaded readings</span>
+                <button className="secondary" onClick={onRetry} disabled={updating}>
+                  Retry
+                </button>
+              </span>
+            ) : (
+              <span className="muted">{updating ? 'Updating…' : ''}</span>
+            )}
           </div>
-        ))}
-      </div>
-      <p className="muted">
-        Shared time range · {shared.timezone}. Lines show bucket means; vertical ranges preserve
-        minima and maxima. Window shading, presence bands and smell markers use the same recorded
-        context.
-      </p>
+        </div>
+      )}
+      <SensorPlot
+        {...shared}
+        title="Particulate matter · SPS30"
+        initialHiddenMetrics={['pm1_ug_m3', 'pm4_ug_m3', 'pm10_ug_m3']}
+        controls={<div className="particulate-controls">{particulateControls}</div>}
+        unit="µg/m³"
+        series={series(sps, ['pm1_ug_m3', 'pm2_5_ug_m3', 'pm4_ug_m3', 'pm10_ug_m3'])}
+        points={data.points}
+        sensors={sps}
+      />
       <SensorPlot
         {...shared}
         title="BME690 gas response"
@@ -406,7 +451,7 @@ export function SensorAnalysis({
         points={data.points}
         sensors={bme}
       />
-      <div className="sensor-small-grid">
+      <div className="sensor-small-grid sensor-gas-grid">
         {['raw_voc_ticks', 'raw_nox_ticks'].map((metric) => (
           <SensorPlot
             key={metric}
@@ -419,29 +464,6 @@ export function SensorAnalysis({
           />
         ))}
       </div>
-      <SensorPlot
-        {...shared}
-        title="Particulate matter · SPS30"
-        initialHiddenMetrics={['pm1_ug_m3', 'pm4_ug_m3', 'pm10_ug_m3']}
-        controls={
-          <div className="particulate-controls">
-            <p className="muted">
-              PM2.5 is shown first. Select additional particle sizes to compare. Time controls apply
-              to all charts.
-            </p>
-            {particulateControls}
-          </div>
-        }
-        unit="µg/m³"
-        series={series(sps, ['pm1_ug_m3', 'pm2_5_ug_m3', 'pm4_ug_m3', 'pm10_ug_m3'])}
-        points={data.points}
-        sensors={sps}
-      />
-      <h3>Environment</h3>
-      <p className="muted">
-        Primary source: {primary?.label ?? 'Awaiting registration'}. Each sensor remains
-        independently identified.
-      </p>
       <EnvironmentPlots {...shared} points={data.points} sensors={bme} primary={primary} />
     </section>
   );
@@ -460,7 +482,7 @@ function EnvironmentPlots({
         <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />{' '}
         Compare BME690 environmental sources
       </label>
-      <div className="sensor-small-grid">
+      <div className="sensor-small-grid sensor-environment-grid">
         {['temperature_c', 'humidity_pct', 'pressure_pa'].map((metric) => (
           <SensorPlot
             key={metric}

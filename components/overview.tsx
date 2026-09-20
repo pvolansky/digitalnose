@@ -18,7 +18,6 @@ import { useLiveData } from './use-live-data';
 import { Realtime } from './realtime';
 import { LiveReading } from './live-reading';
 import { ReadingChart } from './reading-chart';
-import { ContextToggles } from './context-toggles';
 import { RecentReports } from './recent-reports';
 export function Overview({
   initial,
@@ -28,7 +27,6 @@ export function Overview({
   range: initialRange,
   window: initialWindow,
   initialError = false,
-  canEditContext = false,
   demo = false,
 }: {
   initial: OverviewData;
@@ -61,9 +59,9 @@ export function Overview({
   );
   const live = useLiveData(initial, load, initialError, !demo, !demo);
   const [sensors, setSensors] = useState<Sensor[]>([]);
+  const [sensorMinutes, setSensorMinutes] = useState<15 | 30 | 60>(60);
   const [selectedMoment, setSelectedMoment] = useState<number | null>(null);
-  const [demoData, setDemoData] = useState(initial);
-  const data = demo ? demoData : live.data;
+  const data = demo ? initial : live.data;
   return (
     <>
       {live.error && !demo && (
@@ -101,6 +99,82 @@ export function Overview({
           ) : undefined
         }
       />
+      <section className="panel chart-workspace" aria-labelledby="sensor-history-title">
+        <div className="row spread chart-toolbar">
+          <h2 id="sensor-history-title">Air readings over time</h2>
+          <span className="muted" role="status">
+            {!device ? 'No sensor connected' : !demo && live.updating ? 'Updating…' : ''}
+          </span>
+        </div>
+        {!demo && (
+          <HistoryControls
+            pending={live.updating}
+            range={range}
+            window={window}
+            now={data.now}
+            timezone={site.timezone}
+            siteId={site.id}
+            deviceId={device?.id}
+          />
+        )}
+
+        {selection.error && (
+          <p role="status" className="sync-notice">
+            {selection.error}
+          </p>
+        )}
+        <ReadingChart
+          selectedMoment={selectedMoment}
+          onSelectMoment={setSelectedMoment}
+          weather={data.weather.history}
+          readings={data.readings}
+          events={data.events}
+          reports={data.reports}
+          userId={userId}
+          timezone={site.timezone}
+          start={
+            data.historyStart ?? initialWindow?.start ?? data.now - ranges[initialRange] * 3600000
+          }
+          end={data.historyEnd ?? initialWindow?.end ?? data.now}
+        />
+        {!demo && (
+          <>
+            <div className="row spread sensor-time-controls">
+              <span className="muted">Sensor detail</span>
+              <div className="segmented" role="group" aria-label="Sensor detail timeframe">
+                {([15, 30, 60] as const).map((minutes) => (
+                  <button
+                    key={minutes}
+                    type="button"
+                    className={sensorMinutes === minutes ? '' : 'secondary'}
+                    aria-pressed={sensorMinutes === minutes}
+                    onClick={() => setSensorMinutes(minutes)}
+                  >
+                    {minutes === 60 ? '1 hour' : `${minutes} min`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <LiveSensorAnalysis
+              onSensors={setSensors}
+              deviceId={device?.id}
+              now={data.now}
+              timezone={site.timezone}
+              start={Math.max(
+                data.historyStart ?? -Infinity,
+                (data.historyEnd ?? data.now) - sensorMinutes * 60000,
+              )}
+              end={data.historyEnd ?? data.now}
+              selectedAt={selectedMoment}
+              onSelect={setSelectedMoment}
+              events={data.events}
+              reports={data.reports}
+              weather={data.weather.history}
+              readings={data.readings}
+            />
+          </>
+        )}
+      </section>
       <WeatherCard
         observation={data.weather.latest}
         now={data.now}
@@ -109,94 +183,7 @@ export function Overview({
         unavailable={data.weather.unavailable}
         demo={demo}
       />
-      <div className="row spread chart-toolbar">
-        <span className="muted">
-          {device ? 'Reading history' : 'No sensor connected'}
-          {!demo && live.updating ? ' · Updating…' : ''}
-        </span>
-      </div>
-      {!demo && (
-        <HistoryControls
-          pending={live.updating}
-          range={range}
-          window={window}
-          now={data.now}
-          timezone={site.timezone}
-          siteId={site.id}
-          deviceId={device?.id}
-        />
-      )}
-
-      {selection.error && (
-        <p role="status" className="sync-notice">
-          {selection.error}
-        </p>
-      )}
-      <ReadingChart
-        selectedMoment={selectedMoment}
-        onSelectMoment={setSelectedMoment}
-        weather={data.weather.history}
-        readings={data.readings}
-        events={data.events}
-        reports={data.reports}
-        userId={userId}
-        timezone={site.timezone}
-        start={
-          data.historyStart ?? initialWindow?.start ?? data.now - ranges[initialRange] * 3600000
-        }
-        end={data.historyEnd ?? initialWindow?.end ?? data.now}
-      />
-      <ContextToggles
-        canEdit={canEditContext || demo}
-        siteId={site.id}
-        events={data.currentEvents}
-        demo={demo}
-        onDemoChange={(type, value) => {
-          const now = Date.now();
-          const event = {
-            id: `demo-${now}`,
-            site_id: site.id,
-            user_id: userId,
-            event_type: type,
-            value,
-            recorded_at: new Date(now).toISOString(),
-          };
-          setDemoData((previous) => ({
-            ...previous,
-            now,
-            events: [...previous.events, event],
-            currentEvents: [...previous.currentEvents, event],
-          }));
-        }}
-      />
       <RecentReports reports={data.recentReports} timezone={site.timezone} />
-      {!demo && (
-        <LiveSensorAnalysis
-          onSensors={setSensors}
-          particulateControls={
-            <HistoryControls
-              pending={live.updating}
-              range={range}
-              window={window}
-              now={data.now}
-              timezone={site.timezone}
-              siteId={site.id}
-              deviceId={device?.id}
-            />
-          }
-          deviceId={device?.id}
-          now={data.now}
-          timezone={site.timezone}
-          start={window?.start ?? data.now - ranges[range] * 3600000}
-          end={window?.end ?? data.now}
-          selectedAt={selectedMoment}
-          onSelect={setSelectedMoment}
-          events={data.events}
-          reports={data.reports}
-          weather={data.weather.history}
-          readings={data.readings}
-        />
-      )}
     </>
   );
 }

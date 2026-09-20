@@ -102,11 +102,17 @@ test('empty array shows intentional empty sections with no zero-filled plots', (
     'SGP41 · Raw VOC',
     'SGP41 · Raw NOx',
     'Particulate matter',
-    'Environment',
-    'AWAITING DATA',
+    'Temperature',
+    'Relative humidity',
+    'Pressure',
     'Awaiting sensor data',
   ])
     assert.ok(html.includes(text), text);
+  assert.ok(html.indexOf('Particulate matter') < html.indexOf('BME690 gas response'));
+  assert.ok(html.includes('sensor-gas-grid'));
+  assert.ok(html.includes('sensor-environment-grid'));
+  assert.ok(!html.includes('Sensor status'));
+  assert.ok(!html.includes('<h2>Sensor array</h2>'));
   assert.ok(!html.includes('<polyline'));
   assert.ok(!html.includes('0 µg/m³'));
 });

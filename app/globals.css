@@ -1950,3 +1950,50 @@ footer a {
   color: #75309a;
   background: #f3eaf8;
 }
+
+/* A single chart workspace keeps shared controls and related plots together. */
+.chart-workspace { min-width: 0; }
+.chart-workspace > .chart-toolbar { margin: 0 0 20px; }
+.chart-workspace > .chart-toolbar h2 { margin: 0; }
+.chart-workspace > .history-panel,
+.chart-workspace > .sensor-analysis {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 28px 0 0;
+  margin: 24px 0 0;
+}
+.chart-workspace .chart-heading h2,
+.chart-workspace .sensor-analysis > .row h2 { font-size: 20px; }
+.chart-workspace .chart-heading-summary { display: none; }
+.chart-workspace .sensor-small-grid { align-items: start; }
+.sensor-status-details { border-top: 1px solid var(--line); padding-top: 20px; margin-top: 20px; }
+.sensor-status-details > summary { cursor: pointer; padding: 10px 0; font-size: 14px; font-weight: 600; }
+@media (max-width: 640px) {
+  .chart-workspace { padding: 20px 16px; }
+  .chart-workspace > .history-panel,
+  .chart-workspace > .sensor-analysis { padding-top: 20px; }
+}
+
+.chart-workspace > .sensor-analysis { border: 0; padding: 0; margin: 0; }
+.chart-workspace .sensor-small-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.chart-workspace .sensor-refresh-status:empty { display: none; }
+
+.chart-workspace .sensor-gas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.chart-workspace .sensor-environment-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.sensor-plot { position: relative; }
+.sensor-value-tooltip { position: absolute; z-index: 4; top: 70px; right: 12px; max-width: calc(100% - 24px); padding: 16px; background: white; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 40px #172b4626; font-size: 12px; pointer-events: none; }
+.chart-time-slider { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .chart-hover-tooltip, .sensor-value-tooltip { display: none; }
+  .chart-time-slider { display: block; padding: 8px 0 16px; }
+  .chart-time-slider input { width: 100%; min-height: 44px; accent-color: var(--accent); }
+  .chart-slider-reading { min-height: 60px; font-size: 12px; line-height: 1.6; }
+}
+@media (max-width: 700px) {
+  .chart-workspace .sensor-gas-grid, .chart-workspace .sensor-environment-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+
+.sensor-time-controls { margin: 24px 0 12px; gap: 12px; flex-wrap: wrap; }

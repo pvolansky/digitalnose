@@ -1,3 +1,6 @@
+import { ContextToggles } from '@/components/context-toggles';
+import { loadState } from '@/lib/domain/site-state';
+import { sensorHealth, type Sensor } from '@/lib/sensors/data';
 import { siteContext } from '@/lib/domain/sites';
 import { Shell } from '@/components/shell';
 import { CreateSite } from '@/components/create-site';
@@ -20,6 +23,19 @@ export default async function Settings({
       : { data: [], error: null };
   if (locationError) throw new Error('Unable to load private weather settings.');
   const location = locations?.[0];
+  const currentEvents = role === 'owner' ? await loadState(db, site.id) : [];
+  const sensorStatus =
+    role === 'owner'
+      ? await Promise.all(
+          devices.map(async (device) => {
+            const { data, error } = await db.rpc('sensor_array_health', {
+              target_device: device.id,
+            });
+            return { device, sensors: (data ?? []) as Sensor[], failed: !!error };
+          }),
+        )
+      : [];
+
   const { data: profile, error: profileError } = await db
     .from('profiles')
     .select('display_name')
@@ -54,6 +70,38 @@ export default async function Settings({
       </section>
       {role === 'owner' ? (
         <>
+          <ContextToggles siteId={site.id} canEdit events={currentEvents} />
+          <section className="panel" aria-label="Sensor status">
+            <h2>Sensor status</h2>
+            {sensorStatus.map(({ device, sensors, failed }) => (
+              <div key={device.id}>
+                <h3>{device.name}</h3>
+                {failed ? (
+                  <p role="status">Sensor status is temporarily unavailable.</p>
+                ) : (
+                  <div className="sensor-status-grid">
+                    {sensors.map((sensor) => (
+                      <div key={sensor.id}>
+                        <strong>{sensor.label}</strong>
+                        <span className="tag">
+                          {sensorHealth(sensor, Date.now()).replaceAll('_', ' ')}
+                        </span>
+                        <small className="muted">
+                          {sensor.last_valid_reading_at
+                            ? `Last valid: ${new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: site.timezone }).format(new Date(sensor.last_valid_reading_at))}`
+                            : 'Awaiting first valid reading'}
+                          {!sensor.enabled ? ' · Disabled' : ''}
+                        </small>
+                        {sensor.latest_observation?.last_error && (
+                          <small>{sensor.latest_observation.last_error}</small>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
           <section className="panel form">
             <h2>Site details</h2>
             <SettingsForm action="site" siteId={site.id}>

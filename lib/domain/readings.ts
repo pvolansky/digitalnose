@@ -1,7 +1,7 @@
 import { historyWindowError, type HistoryWindow } from './history-window';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Reading } from './types';
-export const ranges = { '6H': 6, '24H': 24, '7D': 168 } as const;
+export const ranges = { '3H': 3, '6H': 6, '24H': 24, '7D': 168 } as const;
 export type Range = keyof typeof ranges;
 export function parseRange(value?: string): Range {
   return value && value in ranges ? (value as Range) : '24H';
