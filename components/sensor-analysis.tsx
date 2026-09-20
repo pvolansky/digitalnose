@@ -8,6 +8,8 @@ import {
   type Sensor,
   type Bucket,
 } from '@/lib/sensors/data';
+import { MetricInfo } from './metric-info';
+import { isSensorMetric } from '@/lib/sensors/metric-info';
 import { bucketGroups, metricLabels } from '@/lib/sensors/charts';
 import type { Reading, SmellReport, StateEvent } from '@/lib/domain/types';
 import { stateIntervals } from '@/lib/domain/timeline';
@@ -85,7 +87,11 @@ export function SensorPlot({
   );
   // The database excludes maintenance samples before aggregating. A bucket start
   // can overlap maintenance even when its remaining observations are valid.
-  const usable = rows;
+  const usable = rows.map((point) =>
+    point.metric === 'pressure_pa'
+      ? { ...point, mean: point.mean / 100, min: point.min / 100, max: point.max / 100 }
+      : point,
+  );
   const lo = Math.min(0, ...usable.map((p) => p.min)),
     hi = Math.max(1, ...usable.map((p) => p.max));
   const top = hi + (hi - lo) * 0.08;
@@ -97,24 +103,31 @@ export function SensorPlot({
   return (
     <section ref={plotRef} className="sensor-plot" aria-labelledby={id}>
       <div className="row spread">
-        <h3 id={id}>{title}</h3>
+        <div className="row">
+          <h3 id={id}>{title}</h3>
+          {[...new Set(series.map((s) => s.metric))].length === 1 &&
+            isSensorMetric(series[0]?.metric) && <MetricInfo metric={series[0].metric} />}
+        </div>
         <span className="muted">{unit}</span>
       </div>
       {controls}
       <div className="row sensor-legend">
         {series.map((s, i) => (
-          <button
-            key={s.id}
-            className="secondary tag"
-            aria-pressed={!hidden.includes(s.id)}
-            onClick={() =>
-              setHidden((prev) =>
-                prev.includes(s.id) ? prev.filter((v) => v !== s.id) : [...prev, s.id],
-              )
-            }
-          >
-            <span style={{ color: colours[i % 4] }}>●</span> {s.label}
-          </button>
+          <span key={s.id} className="row">
+            <button
+              className="secondary tag"
+              aria-pressed={!hidden.includes(s.id)}
+              onClick={() =>
+                setHidden((prev) =>
+                  prev.includes(s.id) ? prev.filter((v) => v !== s.id) : [...prev, s.id],
+                )
+              }
+            >
+              <span style={{ color: colours[i % 4] }}>●</span> {s.label}
+            </button>
+            {[...new Set(series.map((item) => item.metric))].length > 1 &&
+              isSensorMetric(s.metric) && <MetricInfo metric={s.metric} />}
+          </span>
         ))}
       </div>
       {!usable.length ? (

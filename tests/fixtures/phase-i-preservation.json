@@ -20,7 +20,7 @@
   "edge/raspberry-pi/test_pipeline.py": "fb34c25745f61e5fa2783453d02ce7f82f4c52412ede7c591009368b8c2a465a",
   "lib/auth/confirmation.ts": "5056142a69266b3c09d28e33ed318f97aa2d82205a2bb4ba2e8a358dc71a20bc",
   "lib/auth/session.ts": "aaf15b9bde427e08ea435b1179545c2469a1f4edf03190d9577bf3fcd86c1065",
-  "lib/domain/air-quality.ts": "aefc90cf3c52cf5771fe72a88e8cb57a76c3d21ccd60d8b98bdbe6d9142bdb07",
+  "lib/domain/air-quality.ts": "b9ff1dce5d060fc2851c44752a3e6679f3e5b2199788358b719fb464c6a1fffd",
   "lib/domain/chart-context.ts": "b3d3c1b54440228f53ae57caf33d2ba9186d81b89c49ea1f98d4af583f93f7ab",
   "lib/domain/demo.ts": "3e3b8e20a1543bb2f0c8dec03c13a2cf7f640d7907291d43d8758b9e7e8e11f7",
   "lib/domain/device-health.ts": "6ada3e64ad328d1584cc299a285949dad7e5184253891edeb8cac291053ed1ba",

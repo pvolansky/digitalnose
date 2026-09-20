@@ -16,7 +16,9 @@ Phase II adds independent multi-sensor acquisition, durable per-sensor outboxes,
 | **Phase II — Sensor Array** | TCA9548A, two BME690 sensors, SGP41 and SPS30; independent raw acquisition, durable outboxes, multi-sensor telemetry and calibration dataset collection. |
 | **Phase III — SSM / ML (future)** | Dataset analysis, feature engineering, calibration, restaurant versus not-restaurant modelling, validation and Raspberry Pi inference. |
 
-The Phase II application and acquisition software are implemented and locally tested. The additive database migrations have been applied to the existing project. Deployment of the new application endpoint and Pi acquisition services, physical sensor verification and the full-array soak remain pending. New acquisition entries and publishing are disabled by default; no model or inference service is included.
+The Phase II sensor array is now running on the Raspberry Pi alongside the existing ENS160 foundation: both BME690 sensors and SGP41 through the TCA9548A, and SPS30 over USB. Independent acquisition, durable per-sensor outboxes and production cloud ingestion support real-world calibration dataset collection. The first controlled SPS30 observation has been verified through production ingestion, database storage and the dashboard query path. Running hardware does not by itself establish long-term stability or calibrated source detection; continued monitoring and dataset collection remain part of Phase II. Example configurations stay disabled by default for safe commissioning of new installations. No ML model or inference service is included.
+
+The dashboard includes gas-response, particulate-matter and environmental charts, with timeframe changes refreshed in the background. Shared metric information explains what each signal measures, its interpretation and its limitations. BME690 pressure is displayed in hPa; raw SGP41 ticks and BME690 gas resistance have no universal air-quality bands. Latest PM readings use a neutral concentration badge, with WHO and UK references clearly distinguished from instantaneous measurements by their 24-hour averaging period. See the [metric interpretation and source register](docs/metric-interpretation.md).
 
 See the [Phase II architecture and measurement contract](docs/phase-ii.md), [Phase II acquisition and deployment guide](docs/phase-ii-acquisition.md), and [database rollout record](docs/phase-ii-rollout.md).
 
@@ -40,7 +42,7 @@ flowchart TD
   Reports --> DB
 ```
 
-Next.js App Router, TypeScript, Tailwind CSS, Supabase Postgres/Auth/Realtime. No ORM, external queue service, external charting package, or global state library. The ENS160 chart plots every selected minute without smoothing; missing minutes remain gaps. Phase II sensor charts use bounded buckets retaining mean, minimum, maximum and count; the inspector retrieves original observations. eCO₂ is an equivalent estimate from ENS160, not a direct CO₂ measurement.
+Next.js App Router, TypeScript, Tailwind CSS, Supabase Postgres/Auth/Realtime. No ORM, external queue service, external charting package, or global state library. The ENS160 chart plots every selected minute without smoothing; missing minutes remain gaps. Phase II sensor charts use bounded buckets retaining mean, minimum, maximum and count; original observations remain stored separately. eCO₂ is an equivalent estimate from ENS160, not a direct CO₂ measurement.
 
 ## Local development
 

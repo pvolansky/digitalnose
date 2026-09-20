@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
-import { MetricBadge, MetricInfo, InfoTooltip } from './metric-info';
+import { MetricBadge, MetricInfo } from './metric-info';
 import { getDeviceHealth, healthTimeAgo } from '@/lib/domain/device-health';
 import { particulateRating } from '@/lib/domain/particulate-quality';
 import { sensorHealth, type Sensor } from '@/lib/sensors/data';
@@ -95,10 +95,7 @@ export function LiveReading({
           <div>
             <p className="muted" style={{ fontSize: 14 }}>
               PM2.5 · SPS30
-              <InfoTooltip
-                label="PM2.5 colours"
-                description="Defra-based bands (µg/m³): <36 low · 36–<54 moderate · 54–<71 high · ≥71 very high. Colours compare the latest reading; official UK ratings use a 24-hour mean. Low does not mean risk-free."
-              />
+              <MetricInfo metric="pm2_5_ug_m3" />
             </p>
             <div>
               <span className="metric-value">

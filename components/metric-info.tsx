@@ -1,7 +1,9 @@
 'use client';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
+import { metricCatalogue, metricDescription, type SensorMetric } from '@/lib/sensors/metric-info';
+import { infoPosition } from '@/lib/sensors/info-position';
 import { LuInfo } from 'react-icons/lu';
-import { airQualityRating, metricInfo, type Metric } from '@/lib/domain/air-quality';
+import { airQualityRating, type Metric } from '@/lib/domain/air-quality';
 export function MetricBadge({
   metric,
   value,
@@ -19,25 +21,44 @@ export function MetricBadge({
     </span>
   );
 }
-export function MetricInfo({ metric, label }: { metric: Metric; label: string }) {
-  return <InfoTooltip label={label} description={metricInfo[metric]} />;
+export function MetricInfo({ metric, label }: { metric: SensorMetric; label?: string }) {
+  return (
+    <InfoTooltip
+      label={label ?? metricCatalogue[metric].label}
+      description={metricDescription(metric)}
+    />
+  );
 }
 export function InfoTooltip({ label, description }: { label: string; description: string }) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ left: 16, top: 16 });
   const ref = useRef<HTMLSpanElement>(null);
+  const panel = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const id = useId();
   const show = () => {
     clearTimeout(timer.current);
-    const rect = ref.current?.getBoundingClientRect();
-    if (rect)
-      setPosition({
-        left: Math.max(16, Math.min(rect.left, window.innerWidth - 316)),
-        top: Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - 260)),
-      });
     setOpen(true);
   };
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const anchor = ref.current?.getBoundingClientRect();
+      const box = panel.current?.getBoundingClientRect();
+      if (!anchor || !box) return;
+      setPosition(
+        infoPosition(anchor, box, { width: window.innerWidth, height: window.innerHeight }),
+      );
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    if (panel.current) observer.observe(panel.current);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const outside = (e: PointerEvent) => {
@@ -63,7 +84,9 @@ export function InfoTooltip({ label, description }: { label: string; description
       ref={ref}
       onMouseEnter={show}
       onMouseLeave={() => {
-        timer.current = setTimeout(() => setOpen(false), 180);
+        timer.current = setTimeout(() => {
+          if (!ref.current?.contains(document.activeElement)) setOpen(false);
+        }, 180);
       }}
     >
       <button
@@ -80,6 +103,7 @@ export function InfoTooltip({ label, description }: { label: string; description
       </button>
       {open && (
         <span
+          ref={panel}
           id={id}
           role="tooltip"
           className="metric-tooltip"

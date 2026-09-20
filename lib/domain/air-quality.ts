@@ -1,3 +1,4 @@
+import { metricDescription } from '../sensors/metric-info';
 export type Metric = 'tvoc_mean' | 'eco2_mean' | 'aqi_max';
 export type Rating = {
   label: string;
@@ -33,10 +34,7 @@ export function airQualityRating(
   return { label: 'VOC estimate', tone: 'neutral' };
 }
 export const metricInfo: Record<Metric, string> = {
-  tvoc_mean:
-    'TVOC estimates the total volatile organic compounds in the air, in ppb. Cooking, cleaning products and other sources can affect it.\n\nShown as a one-minute average. It cannot identify individual chemicals or establish whether the air is safe. Use the sensor AQI and recorded context to interpret changes.',
-  eco2_mean:
-    'eCO₂ is an estimate derived from other gases, not a direct CO₂ measurement. Shown as a one-minute average.\n\nENS160 guidance: 400–<600 Excellent; 600–<800 Good; 800–<1,000 Fair; 1,000–1,500 Poor; >1,500 Bad.\n\nAn estimated air-quality indicator, not a CO₂ safety measurement.',
-  aqi_max:
-    'The ENS160 indoor air-quality index is derived from its TVOC signal. It is not the outdoor AQI used in weather apps.\n\n1 Excellent · 2 Good · 3 Moderate · 4 Poor · 5 Unhealthy.\n\nShown as the highest index in each minute; TVOC is averaged, so the two can differ. Labels are sensor categories, not a diagnosis.',
+  tvoc_mean: metricDescription('tvoc_mean'),
+  eco2_mean: metricDescription('eco2_mean'),
+  aqi_max: metricDescription('aqi_max'),
 };
