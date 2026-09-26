@@ -1,0 +1,18 @@
+[Unit]
+Description=Digital Nose device health summary
+After=network.target
+
+[Service]
+Type=oneshot
+User=diginose
+Group=diginose
+WorkingDirectory=/home/diginose/digital-nose
+EnvironmentFile=/etc/digitalnose/phase3.env
+ExecStart=/home/diginose/digital-nose/.venv-phase3/bin/python -m phase3 device-health --config /etc/digitalnose/phase3.json
+TimeoutStartSec=240
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/lib/digitalnose/phase3 /var/lib/digitalnose/phase3-auth

@@ -1,0 +1,3 @@
+# Install only in the new archive environment, never into the ENS160 environment.
+pyarrow==21.0.0
+psycopg[binary]==3.2.10

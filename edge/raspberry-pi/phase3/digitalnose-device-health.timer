@@ -1,0 +1,11 @@
+[Unit]
+Description=Digital Nose device health every five minutes
+
+[Timer]
+OnCalendar=*:0/5
+AccuracySec=5s
+Persistent=false
+Unit=digitalnose-device-health.service
+
+[Install]
+WantedBy=timers.target

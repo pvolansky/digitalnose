@@ -87,3 +87,5 @@ Thumbs.db
 
 # Generated agent workspace files
 /CLAUDE.md
+/docs/local-reports/
+/deployment/phase3-publisher-v2/

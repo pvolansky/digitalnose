@@ -1,0 +1,24 @@
+[Unit]
+Description=Digital Nose parallel archive and summaries (%i)
+After=network.target
+
+[Service]
+Type=simple
+User=diginose
+Group=diginose
+WorkingDirectory=/home/diginose/digital-nose
+EnvironmentFile=/etc/digitalnose/phase3.env
+ExecStart=/home/diginose/digital-nose/.venv-phase3/bin/python -m phase3 worker --config /etc/digitalnose/phase3.json --sensor %i
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=120
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/lib/digitalnose/phase3 /var/lib/digitalnose/phase3-auth
+# The legacy DB is opened mode=ro; writable SQLite WAL/SHM is NOT required by this worker.
+
+[Install]
+WantedBy=multi-user.target

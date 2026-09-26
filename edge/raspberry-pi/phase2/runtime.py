@@ -239,16 +239,34 @@ def collect(config, key, driver, box, stop):
 
 
 def publish(config, key, box, url, credential, stop):
+    mirror = None
     try:
+        archive_config = os.environ.get('DIGITALNOSE_PHASE3_CONFIG')
+        if archive_config:
+            from phase3.integration import Mirror
+            from phase3.publisher_timing import timed_sync_once
+            mirror = Mirror(archive_config, key)
         while not stop.is_set():
             try:
-                result = sync_once(box, url, credential, time.time())
+                if mirror is None:
+                    result = sync_once(box, url, credential, time.time())
+                else:
+                    result = timed_sync_once(
+                        sync_once, box, url, credential, time.time(), mirror,
+                        lambda fields: log('publisher_timing', key,
+                                           config['sensors'][key]['type'], **fields))
                 if result:
                     log('delivery', key, config['sensors'][key]['type'], **result)
                 else:
                     stop.wait(1)
-            except sqlite3.Error as exc:
+            except (sqlite3.Error, OSError, ValueError) as exc:
+                if mirror is None and not isinstance(exc, sqlite3.Error):
+                    raise
                 log('outbox_unavailable', key, config['sensors'][key]['type'], **storage_error(exc))
                 stop.wait(5)
     finally:
-        box.close()
+        try:
+            if mirror is not None:
+                mirror.close()
+        finally:
+            box.close()

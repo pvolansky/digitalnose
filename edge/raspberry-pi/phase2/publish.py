@@ -38,10 +38,13 @@ def upload(url, key, body):
         return code, None
 
 
-def sync_once(box, url, key, now, sender=upload, jitter=lambda: random.uniform(0, 5)):
+def sync_once(box, url, key, now, sender=upload, jitter=lambda: random.uniform(0, 5), preserve=None):
     row = box.next(now)
     if row is None:
         return None
+    # Preserve the immutable payload before HTTP; failure leaves the outbox untouched.
+    if preserve is not None:
+        preserve(bytes(row['body']))
     try:
         code, data = sender(url, key, bytes(row['body']))
     except (OSError, ValueError, TimeoutError):

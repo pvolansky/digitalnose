@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "device_id": "00000000-0000-4000-8000-000000000001",
+  "spool_root": "/var/lib/digitalnose/phase3",
+  "spool_max_bytes_per_sensor": 2147483648,
+  "min_disk_free_bytes": 2147483648,
+  "coverage_start": "2026-09-24T00:00:00Z",
+  "ens_database": "/home/diginose/digital-nose/data/digitalnose.db",
+  "phase2_state_dir": "/var/lib/digitalnose/phase2",
+  "sensors": {
+    "ens160_01": {"sensor_id":"00000000-0000-4000-8000-000000000002","type":"ens160","interval_seconds":5},
+    "bme690_01": {"sensor_id":"00000000-0000-4000-8000-000000000003","type":"bme690","interval_seconds":1},
+    "bme690_02": {"sensor_id":"00000000-0000-4000-8000-000000000004","type":"bme690","interval_seconds":1},
+    "sgp41_01": {"sensor_id":"00000000-0000-4000-8000-000000000005","type":"sgp41","interval_seconds":1},
+    "sps30_01": {"sensor_id":"00000000-0000-4000-8000-000000000006","type":"sps30","interval_seconds":3}
+  }
+}
