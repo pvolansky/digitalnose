@@ -1,13 +1,14 @@
 import { ReportsFeed } from '@/components/reports-feed';
 import { siteContext } from '@/lib/domain/sites';
-import { loadReports } from '@/lib/domain/reports';
+import { loadJournal, journalDay } from '@/lib/domain/journal';
+import { requestTime } from '@/lib/domain/time';
 import { Shell } from '@/components/shell';
 import { CreateSite } from '@/components/create-site';
 import { ReportButton } from '@/components/report-form';
 export default async function Reports({
   searchParams,
 }: {
-  searchParams: Promise<{ site?: string; before?: string }>;
+  searchParams: Promise<{ site?: string }>;
 }) {
   const params = await searchParams;
   const { db, site, sites } = await siteContext(params.site);
@@ -17,9 +18,7 @@ export default async function Reports({
         <CreateSite />
       </Shell>
     );
-  const before =
-    params.before && Number.isFinite(Date.parse(params.before)) ? params.before : undefined;
-  const [result] = await Promise.allSettled([loadReports(db, site.id, 50, before)]);
+  const [result] = await Promise.allSettled([loadJournal(db, site.id)]);
   const initialError = result.status === 'rejected';
   const reports = result.status === 'fulfilled' ? result.value : [];
   return (
@@ -33,12 +32,13 @@ export default async function Reports({
         <ReportButton siteId={site.id} />
       </div>
       <ReportsFeed
-        key={`${site.id}:${before || ''}`}
+        key={site.id}
         initial={reports}
         initialError={initialError}
         siteId={site.id}
+        siteName={site.name}
         timezone={site.timezone}
-        before={before}
+        today={journalDay(await requestTime(), site.timezone)}
       />
     </Shell>
   );

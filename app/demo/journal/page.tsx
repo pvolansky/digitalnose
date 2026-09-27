@@ -1,11 +1,13 @@
 import { Shell } from '@/components/shell';
-import { RecentReports } from '@/components/recent-reports';
+import { ReportsFeed } from '@/components/reports-feed';
+import { journalDay } from '@/lib/domain/journal';
 import { ReportButton } from '@/components/report-form';
 import { demoData } from '@/lib/domain/demo';
 import { requestTime } from '@/lib/domain/time';
 export const dynamic = 'force-dynamic';
 export default async function DemoJournal() {
-  const { site, reports } = demoData(await requestTime());
+  const now = await requestTime();
+  const { site, reports } = demoData(now);
   return (
     <Shell site={site} demo>
       <div className="row spread page-heading">
@@ -16,7 +18,14 @@ export default async function DemoJournal() {
         </div>
         <ReportButton siteId="demo" demo />
       </div>
-      <RecentReports compact reports={reports} timezone={site.timezone} />
+      <ReportsFeed
+        initial={reports}
+        siteId={site.id}
+        siteName={site.name}
+        timezone={site.timezone}
+        today={journalDay(now, site.timezone)}
+        demo
+      />
     </Shell>
   );
 }

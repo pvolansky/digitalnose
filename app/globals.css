@@ -2007,3 +2007,32 @@ footer a {
 .sensor-plot-caption, .sensor-baseline-note { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 8px 0; }
 .sensor-baseline-note { padding: 8px 10px; border-left: 2px solid var(--line); }
 .sensor-value-tooltip small { display: block; line-height: 1.6; }
+
+.journal-filters { margin-bottom: 24px; }
+.journal-filter-fields { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; }
+.journal-filter-fields label { display: grid; gap: 7px; flex: 1 1 150px; font-size: 13px; }
+.journal-filter-fields input, .journal-filter-fields select { width: 100%; min-width: 0; }
+.journal-filter-summary { font-size: 12px; margin: 12px 0 0; }
+.journal-tabs { margin-bottom: 20px; width: fit-content; }
+.journal-calendar-panel { padding: 24px; }
+.journal-calendar-heading { margin-bottom: 20px; }
+.journal-calendar-heading h2 { margin: 0; font-size: 20px; }
+.journal-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.journal-weekday { text-align: center; padding: 8px 0; color: var(--muted); font-size: 12px; }
+button.journal-day { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; min-height: 84px; padding: 12px; display: flex; flex-direction: column; align-items: start; justify-content: space-between; gap: 8px; font-weight: 500; }
+button.journal-day:hover:not(:disabled) { background: #edf4f0; }
+button.journal-day.is-selected { background: #e5f1e9; border-color: #32634e; box-shadow: inset 0 0 0 1px #32634e; }
+button.journal-day[aria-current="date"] > span:first-child { text-decoration: underline; text-underline-offset: 4px; }
+button.journal-day:disabled { opacity: .3; }
+.journal-day-count { background: #edf4f0; color: #28543e; padding: 3px 7px; border-radius: 6px; font-size: 12px; }
+.journal-day-heading { margin: 24px 0 14px; flex-wrap: wrap; gap: 10px; }
+.journal-day-heading h2 { font-size: 18px; margin: 0; }
+.journal-pagination { margin-top: 18px; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+@media (max-width: 640px) {
+  .journal-calendar-panel { padding: 12px; }
+  .journal-calendar-grid { gap: 3px; }
+  button.journal-day { min-height: 65px; padding: 7px 4px; border-radius: 7px; }
+  .journal-day-word { display: none; }
+  .journal-day-count { padding: 2px 5px; font-size: 11px; }
+  .journal-filter-fields > button { flex: 1 1 140px; }
+}

@@ -1,0 +1,11 @@
+# Journal calendar and PDF export
+
+The journal has Table and Calendar tabs with shared inclusive date filters and a resident selector. Dates use the site's timezone. The earliest selectable date is the first observation for the selected resident, or the site's first observation for All residents. Calendar navigation and day selection respect these bounds; selecting a day reveals its table without changing the report's date range.
+
+`loadJournal` reads all accessible site observations in 500-row keyset pages, then resolves display names using the existing membership-checked RPC. Same-timestamp observations stay distinct. A page or name-lookup failure fails the load rather than silently exporting a partial history. Tables display 50 rows per page; PDFs include the complete filtered selection and are ordered oldest first. No database migration or access-policy change is required.
+
+PDFs are generated on demand in the browser, with a same-origin, OFL-licensed Noto Sans font. No report content is sent to a PDF service. Export re-reads the journal with the signed-in user's permissions. Reports include the site, inclusive date range, resident selection, timezone, count, and columns for date/time, resident, smell type, intensity and notes. Headers repeat on each page, long notes wrap, and footers contain page numbers. A prepared-report link remains available if the browser does not start the automatic download. Demo exports are labelled as fictional.
+
+Validation: lint, TypeScript, 87 app tests, and production webpack build. Journal tests cover 1,203 reports, timestamp ties, pagination failures, inclusive date boundaries, both London DST transitions, leap years, duplicate resident names, and multi-page PDFs with accented names and long notes. Local browser checks cover the calendar, date changes, resident filtering, reset, and mobile layout. A real single-resident PDF was downloaded and its contents checked; four-page layout fixtures were rendered for visual review. Private QA files remain under ignored `docs/local-reports/journal-qa/`.
+
+The journal loads accessible history into memory; a substantially larger deployment should move calendar counts and bounded exports to server-side queries. The included font covers Latin, Greek and Cyrillic text; additional scripts or emoji may require additional font coverage.
