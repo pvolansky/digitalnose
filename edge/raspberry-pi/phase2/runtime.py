@@ -241,7 +241,11 @@ def collect(config, key, driver, box, stop):
 def publish(config, key, box, url, credential, stop):
     mirror = None
     try:
+        from .publish import publish_mode
+        mode = publish_mode(os.environ.get('DIGITALNOSE_PUBLISH_MODE'))
         archive_config = os.environ.get('DIGITALNOSE_PHASE3_CONFIG')
+        if mode == 'archive_only' and not archive_config:
+            raise ValueError('Archive-only publishing requires Phase III configuration')
         if archive_config:
             from phase3.integration import Mirror
             from phase3.publisher_timing import timed_sync_once
@@ -254,7 +258,8 @@ def publish(config, key, box, url, credential, stop):
                     result = timed_sync_once(
                         sync_once, box, url, credential, time.time(), mirror,
                         lambda fields: log('publisher_timing', key,
-                                           config['sensors'][key]['type'], **fields))
+                                           config['sensors'][key]['type'], **fields),
+                        archive_only=mode == 'archive_only')
                 if result:
                     log('delivery', key, config['sensors'][key]['type'], **result)
                 else:

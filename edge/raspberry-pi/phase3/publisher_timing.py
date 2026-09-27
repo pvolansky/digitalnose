@@ -4,7 +4,8 @@ import time
 import uuid
 
 
-def timed_sync_once(sync, box, url, credential, now, preserve, emit, sender=None, jitter=None):
+def timed_sync_once(sync, box, url, credential, now, preserve, emit, sender=None, jitter=None,
+                    archive_only=False):
     from phase2.publish import upload
     started = time.monotonic()
     fields = dict(attempt_id=str(uuid.uuid4()), sequence_number=None, attempt=None,
@@ -71,6 +72,8 @@ def timed_sync_once(sync, box, url, credential, now, preserve, emit, sender=None
 
     try:
         kwargs = {'sender': sending, 'preserve': preserving}
+        if archive_only:
+            kwargs['archive_only'] = True
         if jitter is not None:
             kwargs['jitter'] = jitter
         result = sync(ObservedBox(), url, credential, now, **kwargs)

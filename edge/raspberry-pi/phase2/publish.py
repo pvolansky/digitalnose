@@ -38,13 +38,27 @@ def upload(url, key, body):
         return code, None
 
 
-def sync_once(box, url, key, now, sender=upload, jitter=lambda: random.uniform(0, 5), preserve=None):
+def publish_mode(value):
+    mode = value or 'normal'
+    if mode not in ('normal', 'archive_only'):
+        raise ValueError('Invalid publish mode')
+    return mode
+
+
+def sync_once(box, url, key, now, sender=upload, jitter=lambda: random.uniform(0, 5),
+              preserve=None, archive_only=False):
     row = box.next(now)
     if row is None:
         return None
     # Preserve the immutable payload before HTTP; failure leaves the outbox untouched.
     if preserve is not None:
         preserve(bytes(row['body']))
+    if archive_only:
+        if preserve is None:
+            raise ValueError('Archive-only publishing requires preservation')
+        box.acknowledge(row)
+        return {'sequence_number': row['sequence'], 'http_status': None,
+                'retry_state': 'archived', 'attempt': row['attempts'] + 1}
     try:
         code, data = sender(url, key, bytes(row['body']))
     except (OSError, ValueError, TimeoutError):

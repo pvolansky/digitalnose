@@ -14,7 +14,7 @@ from .outbox import read_queue_status
 from .drivers import Hardware
 from .model import utc_now
 from .runtime import collect, publish, open_box, stop_event, deadline, compensation, log
-from .publish import check_credentials
+from .publish import check_credentials, publish_mode
 
 
 def main():
@@ -103,8 +103,10 @@ def main():
         if args.command == 'publish':
             if os.environ.get('DIGITALNOSE_SENSOR_PUBLISH') != 'true':
                 parser.error('Publishing disabled; explicitly set DIGITALNOSE_SENSOR_PUBLISH=true')
+            mode = publish_mode(os.environ.get('DIGITALNOSE_PUBLISH_MODE'))
             url, credential = os.environ.get('DIGITALNOSE_SENSOR_INGEST_URL', ''), os.environ.get('DEVICE_API_KEY', '')
-            check_credentials(url, credential)
+            if mode == 'normal':
+                check_credentials(url, credential)
             publish(config, key, open_box(config, key, collector), url, credential, stop)
         else:
             collect(config, key, Hardware(item, config, lambda: compensation(config)),
