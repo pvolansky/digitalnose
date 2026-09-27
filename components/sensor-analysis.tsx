@@ -10,11 +10,20 @@ import {
 import { ChartTimeSlider } from './chart-time-slider';
 import { MetricInfo } from './metric-info';
 import { isSensorMetric } from '@/lib/sensors/metric-info';
-import { bucketGroups, metricLabels } from '@/lib/sensors/charts';
+import {
+  bucketGroups,
+  metricLabels,
+  preparePlot,
+  chartAxis,
+  axisLabel,
+  relativeMetrics,
+  pointQuality,
+  coverageText,
+  type PlotMode,
+} from '@/lib/sensors/charts';
 import type { Reading, SmellReport, StateEvent } from '@/lib/domain/types';
 import { stateIntervals } from '@/lib/domain/timeline';
 import type { WeatherObservation } from '@/lib/weather/types';
-import { LuClock3 } from 'react-icons/lu';
 const colours = ['#4265d6', '#168078', '#b54880', '#b46a24'];
 function display(value: number) {
   return value.toLocaleString('en-GB', { maximumFractionDigits: 2 });
@@ -39,22 +48,6 @@ type Shared = {
   timezone: string;
 };
 type Series = { id: string; label: string; sensorId: string; metric: string };
-const COLLECTION_START_HOUR = 10;
-const COLLECTION_END_HOUR = 23;
-
-export function collectionPaused(at: number, timezone: string) {
-  const hour = Number(
-    new Intl.DateTimeFormat('en-GB', {
-      timeZone: timezone,
-      hour: '2-digit',
-      hourCycle: 'h23',
-    })
-      .formatToParts(at)
-      .find((part) => part.type === 'hour')?.value,
-  );
-  return hour < COLLECTION_START_HOUR || hour >= COLLECTION_END_HOUR;
-}
-
 export function SensorPlot({
   title,
   unit,
@@ -85,7 +78,7 @@ export function SensorPlot({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const left = 66,
+  const left = 78,
     right = width - 14;
   const axisTime = (time: number) =>
     width < 450
@@ -98,25 +91,24 @@ export function SensorPlot({
   const [hidden, setHidden] = useState<string[]>(() =>
     series.filter((s) => initialHiddenMetrics.includes(s.metric)).map((s) => s.id),
   );
+  const [mode, setMode] = useState<PlotMode>('absolute');
+  const canInspectBaseline =
+    series.length > 0 && series.every((s) => relativeMetrics.has(s.metric));
   const visible = series.filter((s) => !hidden.includes(s.id));
-  const rows = points.filter((p) =>
-    visible.some((s) => s.sensorId === p.sensor_id && s.metric === p.metric),
+  const rows = points.filter(
+    (p) =>
+      visible.some((s) => s.sensorId === p.sensor_id && s.metric === p.metric) &&
+      Date.parse(p.at) >= shared.start &&
+      Date.parse(p.at) < shared.end,
   );
-  // The database excludes maintenance samples before aggregating. A bucket start
-  // can overlap maintenance even when its remaining observations are valid.
-  const usable = rows.map((point) =>
-    point.metric === 'pressure_pa'
-      ? { ...point, mean: point.mean / 100, min: point.min / 100, max: point.max / 100 }
-      : point,
-  );
-  const lo = Math.min(0, ...usable.map((p) => p.min)),
-    hi = Math.max(1, ...usable.map((p) => p.max));
-  const top = hi + (hi - lo) * 0.08;
+  const { points: usable, baselines } = preparePlot(rows, mode);
+  const axis = chartAxis(usable, mode);
+  const plotUnit = mode === 'percent' ? '%' : unit;
+  const percentUnavailable = [...baselines.values()].some((n) => n === 0);
   const x = (at: number) =>
     left + ((at - shared.start) / (shared.end - shared.start)) * (right - left);
-  const y = (n: number) => 180 - ((n - lo) / (top - lo)) * 140;
+  const y = (n: number) => 180 - ((n - axis.min) / (axis.max - axis.min)) * 140;
   const never = sensors.length > 0 && sensors.every((s) => !s.last_valid_reading_at);
-  const scheduledPause = collectionPaused(shared.end, shared.timezone);
   const at = shared.selectedAt;
   const [hover, setHover] = useState(false);
   const inspect = (clientX: number, element: SVGSVGElement) => {
@@ -138,16 +130,29 @@ export function SensorPlot({
         const point = candidates.find(
           (p) =>
             selected >= Date.parse(p.first_observed_at) &&
-            selected <= Date.parse(p.last_observed_at),
+            (selected < Date.parse(p.last_observed_at) ||
+              (p.first_observed_at === p.last_observed_at &&
+                selected === Date.parse(p.last_observed_at))),
         );
         return (
           <div key={s.id}>
             <strong>{s.label}</strong>:{' '}
-            {point ? `mean ${display(point.mean)} ${unit}` : 'No reading at this time'}
+            {point
+              ? `${mode === 'absolute' ? 'mean' : 'mean deviation'} ${display(point.mean)} ${plotUnit}`
+              : 'No reading at this time'}
             {point && (
               <small>
                 {' '}
-                · min {display(point.min)} · max {display(point.max)}
+                · min {display(point.min)} · max {display(point.max)} {plotUnit}
+                <br />
+                {coverageText(point)}
+                {mode !== 'absolute' && (
+                  <>
+                    <br />
+                    Absolute mean {display(point.original.mean)} {unit} · baseline{' '}
+                    {display(point.baseline!)} {unit}
+                  </>
+                )}
               </small>
             )}
           </div>
@@ -163,9 +168,64 @@ export function SensorPlot({
           {[...new Set(series.map((s) => s.metric))].length === 1 &&
             isSensorMetric(series[0]?.metric) && <MetricInfo metric={series[0].metric} />}
         </div>
-        <span className="muted">{unit}</span>
+        <span className="muted">{plotUnit}</span>
       </div>
       {controls}
+      {canInspectBaseline && (
+        <div
+          className="segmented sensor-view-modes"
+          role="group"
+          aria-label={`${title} visualization`}
+        >
+          {(
+            [
+              ['absolute', 'Absolute'],
+              ['delta', 'Δ from baseline'],
+              ['percent', '% change'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={mode === value}
+              className={mode === value ? '' : 'secondary'}
+              disabled={value === 'percent' && percentUnavailable}
+              onClick={() => setMode(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="sensor-plot-caption">
+        {mode === 'absolute'
+          ? series.every((s) => s.metric.startsWith('pm'))
+            ? 'Zero-based scale'
+            : 'Local scale · not necessarily zero-based'
+          : 'Deviation scale · zero is the local baseline'}
+        {' · '}Line: bucket mean · faint bars: observed min–max. Hollow points and dashed segments:
+        partial or unknown quality. Empty buckets remain gaps.
+      </p>
+      {mode !== 'absolute' && (
+        <p className="sensor-baseline-note">
+          Baseline: median of visible bucket means, separately for each sensor, including partial
+          valid buckets. Recalculated when the window or data changes; not a clean-air reference.
+          {visible.map((s) => {
+            const value = baselines.get(`${s.sensorId}:${s.metric}`);
+            return value === undefined ? null : (
+              <span key={s.id}>
+                {' '}
+                {s.label}: {display(value)} {unit}.
+              </span>
+            );
+          })}
+        </p>
+      )}
+      {mode === 'percent' && percentUnavailable && (
+        <p role="status">
+          Percentage unavailable for a zero baseline. Choose Absolute or Δ from baseline.
+        </p>
+      )}
       <div className="row sensor-legend">
         {series.map((s, i) => (
           <span key={s.id} className="row">
@@ -187,29 +247,22 @@ export function SensorPlot({
       </div>
       {!usable.length ? (
         <div className="sensor-empty">
-          {!visible.length ? (
-            'All series hidden'
-          ) : never ? (
-            'Awaiting sensor data'
-          ) : scheduledPause ? (
-            <span className="sensor-paused">
-              <LuClock3 aria-hidden="true" />
-              <span>
-                <strong>Scheduled collection is paused</strong>
-                Data collection will resume at 10:00 {shared.timezone}.
-              </span>
-            </span>
-          ) : (
-            'No valid readings in this time range'
-          )}
+          {!visible.length
+            ? 'All series hidden'
+            : never
+              ? 'Awaiting sensor data'
+              : 'No valid readings in this time range. Missing or excluded minutes are not filled.'}
         </div>
       ) : (
         <svg
           viewBox={`0 0 ${width} 245`}
           className="sensor-svg"
+          data-axis-min={axis.min}
+          data-axis-max={axis.max}
+          data-plot-mode={mode}
           role="group"
           tabIndex={0}
-          aria-label={`${title}, ${unit}. Click or use arrow keys to inspect a moment.`}
+          aria-label={`${title}, ${plotUnit}. Click or use arrow keys to inspect a moment.`}
           onPointerMove={(e) => {
             if (e.pointerType !== 'touch') {
               setHover(true);
@@ -261,31 +314,50 @@ export function SensorPlot({
                 <title>{i.value ? 'Window open' : 'Window closed'}</title>
               </rect>
             ))}
-          {[0, 0.5, 1].map((f) => (
-            <g key={f}>
-              <line
-                x1={left}
-                x2={right}
-                y1={y(lo + (top - lo) * f)}
-                y2={y(lo + (top - lo) * f)}
-                stroke="var(--line)"
-              />
-              <text
-                x={left - 8}
-                y={y(lo + (top - lo) * f) + 4}
-                textAnchor="end"
-                fontSize="10"
-                fill="var(--muted)"
-              >
-                {display(lo + (top - lo) * f)}
+          {axis.ticks.map((tick) => (
+            <g key={tick}>
+              <line x1={left} x2={right} y1={y(tick)} y2={y(tick)} stroke="var(--line)" />
+              <text x={left - 8} y={y(tick) + 4} textAnchor="end" fontSize="10" fill="var(--muted)">
+                {axisLabel(tick, axis.step)}
               </text>
             </g>
           ))}
+          {mode !== 'absolute' && (
+            <line
+              x1={left}
+              x2={right}
+              y1={y(0)}
+              y2={y(0)}
+              stroke="var(--muted)"
+              strokeDasharray="4 4"
+            />
+          )}
           {visible.map((s) => {
             const colour = colours[series.findIndex((v) => v.id === s.id) % 4];
             const data = usable.filter((p) => p.sensor_id === s.sensorId && p.metric === s.metric);
             return (
               <g key={s.id}>
+                {bucketGroups(data).flatMap((group, i) =>
+                  group.slice(1).map((p, j) => {
+                    const previous = group[j];
+                    return (
+                      <line
+                        key={`${i}:${j}`}
+                        x1={x(Date.parse(previous.at))}
+                        y1={y(previous.mean)}
+                        x2={x(Date.parse(p.at))}
+                        y2={y(p.mean)}
+                        stroke={colour}
+                        strokeWidth="1.7"
+                        strokeDasharray={
+                          pointQuality(previous) === 'complete' && pointQuality(p) === 'complete'
+                            ? undefined
+                            : '4 3'
+                        }
+                      />
+                    );
+                  }),
+                )}
                 {data.map((p) => (
                   <g key={p.bucket}>
                     <line
@@ -294,22 +366,21 @@ export function SensorPlot({
                       y1={y(p.min)}
                       y2={y(p.max)}
                       stroke={colour}
-                      strokeOpacity=".4"
+                      strokeOpacity=".28"
                       strokeWidth="3"
                     />
-                    <circle cx={x(Date.parse(p.at))} cy={y(p.mean)} r="2" fill={colour}>
-                      <title>{`${s.label}: mean ${display(p.mean)}, min ${display(p.min)}, max ${display(p.max)} ${unit}; ${p.count} readings${p.acquisition_variants > 1 ? '; multiple heater settings' : ''}`}</title>
+                    <circle
+                      cx={x(Date.parse(p.at))}
+                      cy={y(p.mean)}
+                      r={pointQuality(p) === 'complete' ? 2 : 3}
+                      fill={pointQuality(p) === 'complete' ? colour : 'white'}
+                      stroke={colour}
+                      strokeWidth="1.5"
+                      data-quality={pointQuality(p)}
+                    >
+                      <title>{`${s.label}: mean ${display(p.mean)}, min ${display(p.min)}, max ${display(p.max)} ${plotUnit}; ${coverageText(p)}${mode !== 'absolute' ? `; absolute mean ${display(p.original.mean)} ${unit}; baseline ${display(p.baseline!)} ${unit}` : ''}${p.acquisition_variants > 1 ? '; multiple heater settings' : ''}`}</title>
                     </circle>
                   </g>
-                ))}
-                {bucketGroups(data).map((group, i) => (
-                  <polyline
-                    key={i}
-                    points={group.map((p) => `${x(Date.parse(p.at))},${y(p.mean)}`).join(' ')}
-                    fill="none"
-                    stroke={colour}
-                    strokeWidth="1.7"
-                  />
                 ))}
               </g>
             );
@@ -461,6 +532,9 @@ export function SensorAnalysis({
           </div>
         </div>
       )}
+      <p className="sensor-plot-caption">
+        {data.bucket_seconds}-second buckets · statistics of valid sensor readings.
+      </p>
       <SensorPlot
         {...shared}
         title="Particulate matter · SPS30"

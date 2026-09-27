@@ -68,11 +68,12 @@ export type Bucket = {
   acquisition_variants: number;
   first?: number;
   last?: number;
-  expected_count?: number;
-  observed_count?: number;
-  valid_count?: number;
-  missing_count?: number;
+  expected_count?: number | null;
+  observed_count?: number | null;
+  valid_count?: number | null;
+  missing_count?: number | null;
   health?: 'normal' | 'degraded' | 'unknown';
+  has_internal_gap?: boolean;
 };
 export type SensorArrayData = {
   sensors: Sensor[];

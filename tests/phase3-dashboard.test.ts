@@ -22,7 +22,9 @@ test('Phase III dashboard reads summaries, preserves gaps, and keeps legacy hist
       create schema auth;create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb);
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
       grant usage on schema public,auth to authenticated,anon,service_role;`);
-    for (const file of readdirSync('supabase/migrations').filter((f) => f.endsWith('.sql')).sort())
+    for (const file of readdirSync('supabase/migrations')
+      .filter((f) => f.endsWith('.sql'))
+      .sort())
       await db.exec(readFileSync(`supabase/migrations/${file}`, 'utf8'));
 
     const owner = '00000000-0000-4000-8000-000000000001';
@@ -118,16 +120,46 @@ test('Phase III dashboard reads summaries, preserves gaps, and keeps legacy hist
         { raw_voc_ticks: 999, raw_nox_ticks: 999 },
       ],
     );
-    // A degraded summary is an explicit gap and must not reveal a raw fallback as clean data.
+    // A full valid minute with one unoccupied cadence slot remains visible but partial.
     await db.query(
       `insert into public.sensor_minute_summaries(sensor_id,device_id,minute_start,revision,body)
        values($1,$2,'2026-09-27T10:03:00Z',1,$3)`,
-      [sensors.sgp41_01, device, body({ raw_voc_ticks: metric(666) }, 'degraded')],
+      [
+        sensors.sgp41_01,
+        device,
+        {
+          ...body({ raw_voc_ticks: metric(666) }, 'degraded'),
+          missing_samples: 1,
+          occupied_slots: 59,
+        },
+      ],
     );
     await db.query(
       `insert into public.sensor_observations(sensor_id,sensor_type,observed_at,status,valid,readings)
        values($1,'sgp41','2026-09-27T10:03:30Z','ok',true,$2)`,
       [sensors.sgp41_01, { raw_voc_ticks: 777, raw_nox_ticks: 777 }],
+    );
+    await db.query(
+      `insert into public.sensor_minute_summaries(sensor_id,device_id,minute_start,revision,body)
+       values($1,$2,'2026-09-27T10:02:00Z',1,$3)`,
+      [
+        sensors.sgp41_01,
+        device,
+        {
+          ...body({}, 'unknown'),
+          metrics: { raw_voc_ticks: null },
+          observed_samples: 0,
+          successful_reads: 0,
+          valid_samples: 0,
+          missing_samples: 60,
+          occupied_slots: 0,
+        },
+      ],
+    );
+    await db.query(
+      `insert into public.sensor_observations(sensor_id,sensor_type,observed_at,status,valid,readings)
+       values($1,'sgp41','2026-09-27T10:02:30Z','ok',true,$2)`,
+      [sensors.sgp41_01, { raw_voc_ticks: 888, raw_nox_ticks: 888 }],
     );
     await db.query(
       `insert into public.minute_aggregates(device_id,minute_start_utc,tvoc_mean,tvoc_min,tvoc_max,
@@ -175,10 +207,19 @@ test('Phase III dashboard reads summaries, preserves gaps, and keeps legacy hist
     );
     assert.deepEqual(
       voc.map((point) => point.mean),
-      [50, 111],
-      'legacy raw is retained, summary wins its minute, missing/degraded minutes remain gaps',
+      [50, 111, 666],
+      'legacy raw remains, summary wins, and partial valid summaries stay visible',
     );
-    assert.ok(!points.some((point) => point.mean === 666 || point.mean === 777 || point.mean === 999));
+    assert.ok(
+      !points.some((point) => point.mean === 777 || point.mean === 888 || point.mean === 999),
+    );
+    const partial = voc.find((point) => point.mean === 666)!;
+    assert.equal(partial.health, 'degraded');
+    assert.equal(partial.missing_count, 1);
+    assert.equal(partial.count, 60);
+    assert.equal(voc[0].health, 'unknown', 'legacy raw does not invent full coverage');
+    assert.equal(voc[0].missing_count, null);
+    assert.ok(!voc.some((point) => point.at.includes('10:02:')), 'absent minute stays absent');
     for (const minutes of [15, 30, 60]) {
       const ranged = (
         await db.query<{ data: { points: Point[] } }>(
@@ -187,8 +228,46 @@ test('Phase III dashboard reads summaries, preserves gaps, and keeps legacy hist
           [device, minutes],
         )
       ).rows[0].data.points;
-      assert.ok(ranged.some((point) => point.mean === 111), `${minutes}-minute summary window`);
+      assert.ok(
+        ranged.some((point) => point.mean === 111),
+        `${minutes}-minute summary window`,
+      );
     }
+    const wide = (
+      await db.query<{ data: { points: (Point & { has_internal_gap: boolean })[] } }>(
+        "select public.sensor_chart_window($1,'2026-09-27T10:00:00Z','2026-09-28T10:00:00Z') data",
+        [device],
+      )
+    ).rows[0].data.points.find(
+      (p) => p.sensor_id === sensors.sgp41_01 && p.metric === 'raw_voc_ticks',
+    )!;
+    assert.equal(wide.count, 121);
+    assert.ok(Math.abs(wide.mean - (50 + 111 * 60 + 666 * 60) / 121) < 1e-9);
+    assert.equal(wide.min, 50);
+    assert.equal(wide.max, 667);
+    assert.equal(wide.has_internal_gap, true);
+    assert.equal(wide.missing_count, null, 'mixed legacy coverage remains unknown');
+    await db.query(
+      `insert into public.site_state_events(site_id,user_id,event_type,value)
+      values($1,$2,'maintenance',true)`,
+      [site, owner],
+    );
+    await db.exec('reset role;set role service_role');
+    await db.query(
+      `update public.site_state_events set recorded_at='2026-09-27T10:03:30Z'
+      where site_id=$1 and event_type='maintenance'`,
+      [site],
+    );
+    const maintained = (
+      await db.query<{ data: { points: Point[] } }>(
+        "select public.sensor_chart_window($1,'2026-09-27T10:00:00Z','2026-09-27T10:10:00Z') data",
+        [device],
+      )
+    ).rows[0].data.points;
+    assert.ok(
+      !maintained.some((p) => p.mean === 666),
+      'maintenance still excludes overlapping minutes',
+    );
     assert.equal((await db.query('select * from public.minute_aggregates')).rows.length, 1);
     assert.ok(!points.some((point) => point.sensor_id === sensors.ens160_01));
   } finally {
