@@ -14,6 +14,7 @@ import { bucketGroups, metricLabels } from '@/lib/sensors/charts';
 import type { Reading, SmellReport, StateEvent } from '@/lib/domain/types';
 import { stateIntervals } from '@/lib/domain/timeline';
 import type { WeatherObservation } from '@/lib/weather/types';
+import { LuClock3 } from 'react-icons/lu';
 const colours = ['#4265d6', '#168078', '#b54880', '#b46a24'];
 function display(value: number) {
   return value.toLocaleString('en-GB', { maximumFractionDigits: 2 });
@@ -38,6 +39,22 @@ type Shared = {
   timezone: string;
 };
 type Series = { id: string; label: string; sensorId: string; metric: string };
+const COLLECTION_START_HOUR = 10;
+const COLLECTION_END_HOUR = 23;
+
+export function collectionPaused(at: number, timezone: string) {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      hour: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(at)
+      .find((part) => part.type === 'hour')?.value,
+  );
+  return hour < COLLECTION_START_HOUR || hour >= COLLECTION_END_HOUR;
+}
+
 export function SensorPlot({
   title,
   unit,
@@ -99,6 +116,7 @@ export function SensorPlot({
     left + ((at - shared.start) / (shared.end - shared.start)) * (right - left);
   const y = (n: number) => 180 - ((n - lo) / (top - lo)) * 140;
   const never = sensors.length > 0 && sensors.every((s) => !s.last_valid_reading_at);
+  const scheduledPause = collectionPaused(shared.end, shared.timezone);
   const at = shared.selectedAt;
   const [hover, setHover] = useState(false);
   const inspect = (clientX: number, element: SVGSVGElement) => {
@@ -168,13 +186,23 @@ export function SensorPlot({
         ))}
       </div>
       {!usable.length ? (
-        <p className="sensor-empty">
-          {!visible.length
-            ? 'All series hidden'
-            : never
-              ? 'Awaiting sensor data'
-              : 'No valid readings in this time range'}
-        </p>
+        <div className="sensor-empty">
+          {!visible.length ? (
+            'All series hidden'
+          ) : never ? (
+            'Awaiting sensor data'
+          ) : scheduledPause ? (
+            <span className="sensor-paused">
+              <LuClock3 aria-hidden="true" />
+              <span>
+                <strong>Scheduled collection is paused</strong>
+                Data collection will resume at 10:00 {shared.timezone}.
+              </span>
+            </span>
+          ) : (
+            'No valid readings in this time range'
+          )}
+        </div>
       ) : (
         <svg
           viewBox={`0 0 ${width} 245`}

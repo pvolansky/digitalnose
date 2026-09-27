@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { SensorAnalysis, SensorPlot } from '../components/sensor-analysis';
+import { collectionPaused, SensorAnalysis, SensorPlot } from '../components/sensor-analysis';
 import {
   sensorHealth,
   loadSensorArray,
@@ -66,6 +66,31 @@ const shared = {
   reports: [],
   timezone: 'Europe/London',
 };
+test('collection pause follows the 10:00–23:00 site window in local time', () => {
+  assert.equal(collectionPaused(Date.parse('2026-06-01T08:59:00Z'), 'Europe/London'), true);
+  assert.equal(collectionPaused(Date.parse('2026-06-01T09:00:00Z'), 'Europe/London'), false);
+  assert.equal(collectionPaused(Date.parse('2026-06-01T21:59:00Z'), 'Europe/London'), false);
+  assert.equal(collectionPaused(Date.parse('2026-06-01T22:00:00Z'), 'Europe/London'), true);
+});
+
+test('empty plots outside collection hours show the next resume time', () => {
+  const activeSensor = { ...sensors[4], last_valid_reading_at: new Date(now).toISOString() };
+  const html = renderToStaticMarkup(
+    <SensorPlot
+      {...shared}
+      start={Date.parse('2026-01-01T22:30:00Z')}
+      end={Date.parse('2026-01-01T23:30:00Z')}
+      title="Particulate matter"
+      unit="µg/m³"
+      sensors={[activeSensor]}
+      series={[{ id: 'pm', label: 'PM2.5', sensorId: 'sps30', metric: 'pm2_5_ug_m3' }]}
+      points={[]}
+    />,
+  );
+  assert.ok(html.includes('Scheduled collection is paused'));
+  assert.ok(html.includes('Data collection will resume at 10:00 Europe/London.'));
+  assert.ok(!html.includes('No valid readings in this time range'));
+});
 test('health is driven by observation time and explicit acquisition state, never registration', () => {
   assert.equal(sensorHealth(sensors[4], now), 'AWAITING_DATA');
   for (const [status, expected] of [
