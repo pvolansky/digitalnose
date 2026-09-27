@@ -2009,9 +2009,37 @@ footer a {
 .sensor-value-tooltip small { display: block; line-height: 1.6; }
 
 .journal-filters { margin-bottom: 24px; }
-.journal-filter-fields { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; }
-.journal-filter-fields label { display: grid; gap: 7px; flex: 1 1 150px; font-size: 13px; }
-.journal-filter-fields input, .journal-filter-fields select { width: 100%; min-width: 0; }
+.journal-filter-fields { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; }
+.journal-filter-fields > label, .journal-resident-field { display: grid; gap: 8px; flex: 1 1 160px; min-width: 0; margin: 0; }
+.journal-filter-fields label { margin: 0; color: var(--muted); font-size: 12px; font-weight: 500; line-height: 1.5; }
+.journal-filter-fields input, .journal-filter-fields .select-field-trigger {
+  appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  min-height: 48px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #cbd3e0;
+  border-radius: 10px;
+  background: white;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
+  box-shadow: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.journal-filter-fields input { font-variant-numeric: tabular-nums; }
+.journal-filter-fields input::-webkit-datetime-edit { padding: 0; }
+.journal-filter-fields input::-webkit-date-and-time-value { min-height: 1.4em; text-align: left; }
+.journal-filter-fields input::-webkit-calendar-picker-indicator { margin: 0; padding: 0; width: 16px; height: 16px; opacity: .55; cursor: pointer; }
+.journal-filter-fields input:hover:not(:disabled), .journal-filter-fields .select-field-trigger:hover { border-color: #9daecc; filter: none; }
+.journal-filter-fields input:focus-visible, .journal-filter-fields .select-field-trigger:focus-visible, .journal-filter-fields .select-field-trigger[aria-expanded='true'] { border-color: var(--accent); box-shadow: 0 0 0 3px #4265d61a; outline: 2px solid transparent; outline-offset: 2px; }
+.journal-filter-fields input:disabled { background: var(--paper); color: var(--muted); cursor: not-allowed; opacity: .6; }
+.journal-filter-fields .select-field-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.journal-filter-fields > button { min-height: 48px; }
 .journal-filter-summary { font-size: 12px; margin: 12px 0 0; }
 .journal-tabs { margin-bottom: 20px; width: fit-content; }
 .journal-calendar-panel { padding: 24px; }

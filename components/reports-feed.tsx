@@ -14,6 +14,7 @@ import { browserClient } from '@/lib/supabase/client';
 import { useLiveData } from './use-live-data';
 import { Realtime } from './realtime';
 import { RecentReports } from './recent-reports';
+import { SelectField } from './select-field';
 
 function JournalRows({ reports, timezone }: { reports: SmellReport[]; timezone: string }) {
   const [page, setPage] = useState(0);
@@ -194,23 +195,23 @@ export function ReportsFeed({
               }}
             />
           </label>
-          <label>
-            Resident
-            <select
+          <div className="journal-resident-field">
+            <label id="journal-resident-label" htmlFor="journal-resident">
+              Resident
+            </label>
+            <SelectField
+              id="journal-resident"
               value={resident}
-              onChange={(e) => {
-                setResident(e.target.value);
+              onChange={(value) => {
+                setResident(value);
                 setDay('');
               }}
-            >
-              <option value="">All residents</option>
-              {residents.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={[
+                { value: '', label: 'All residents' },
+                ...residents.map((r) => ({ value: r.id, label: r.label })),
+              ]}
+            />
+          </div>
           <button
             className="secondary"
             disabled={!data.length}
