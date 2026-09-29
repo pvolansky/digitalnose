@@ -1,4 +1,4 @@
-import { nearestWeather, windDescription } from './weather/context';
+import { windDescription } from './weather/context';
 import type { WeatherObservation } from './weather/types';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
@@ -21,8 +21,20 @@ const clean = (value: string) =>
   value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').normalize('NFC');
 
 export function journalWind(at: string, observations: WeatherObservation[], timezone: string) {
-  const row = nearestWeather(observations, Date.parse(at));
+  const reportTime = Date.parse(at);
+  let row: WeatherObservation | null = null;
+  let nearestDistance = 90 * 60000 + 1;
+  for (const observation of observations) {
+    const distance = Math.abs(Date.parse(observation.observed_at_utc) - reportTime);
+    if (distance <= 90 * 60000 && distance < nearestDistance) {
+      row = observation;
+      nearestDistance = distance;
+    }
+  }
   if (!row) return 'Unavailable';
+  const distanceMinutes = Math.round(
+    Math.abs(Date.parse(row.observed_at_utc) - reportTime) / 60000,
+  );
   const time = new Intl.DateTimeFormat('en-GB', {
     timeZone: timezone,
     day: '2-digit',
@@ -31,7 +43,17 @@ export function journalWind(at: string, observations: WeatherObservation[], time
     minute: '2-digit',
     timeZoneName: 'short',
   }).format(new Date(row.observed_at_utc));
-  return `${windDescription(row)}\nWeather: ${time}`;
+  const proximity =
+    distanceMinutes <= 15
+      ? ''
+      : `\nNearest available: ${distanceMinutes} min ${Date.parse(row.observed_at_utc) < reportTime ? 'earlier' : 'later'}`;
+  return `${windDescription(row)}\nWeather: ${time}${proximity}`;
+}
+
+export function journalPdfReports(reports: SmellReport[]) {
+  return [...reports].sort(
+    (a, b) => b.reported_at.localeCompare(a.reported_at) || b.id.localeCompare(a.id),
+  );
 }
 
 export function createJournalPdf(options: JournalPdfOptions, fontBase64: string) {
@@ -55,7 +77,7 @@ export function createJournalPdf(options: JournalPdfOptions, fontBase64: string)
       : 'Resident observations as recorded. Times use the site timezone.',
     options.weatherUnavailable
       ? 'Weather could not be loaded for this export.'
-      : 'Wind: nearest stored weather within 15 minutes; direction is where wind comes from.',
+      : 'Wind: nearest stored weather; direction is where wind comes from. Matches over 15 minutes away are labelled and limited to 90 minutes.',
     options.demo
       ? 'Weather source: illustrative demo data.'
       : 'Weather source: Open-Meteo; unavailable readings are not estimated.',
@@ -68,8 +90,7 @@ export function createJournalPdf(options: JournalPdfOptions, fontBase64: string)
     startY: 33 + intro.length * 5.3,
     margin: { top: 18, right: 14, bottom: 17, left: 14 },
     head: [['Date / time', 'Resident', 'Smell type', 'Intensity', 'Wind / direction', 'Notes']],
-    body: [...options.reports]
-      .sort((a, b) => a.reported_at.localeCompare(b.reported_at) || a.id.localeCompare(b.id))
+    body: journalPdfReports(options.reports)
       .map((r) => [
         new Intl.DateTimeFormat('en-GB', {
           timeZone: options.timezone,

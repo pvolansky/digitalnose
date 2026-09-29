@@ -12,7 +12,7 @@ import {
   loadJournal,
   shiftMonth,
 } from '../lib/domain/journal';
-import { createJournalPdf } from '../lib/journal-pdf';
+import { createJournalPdf, journalPdfReports } from '../lib/journal-pdf';
 const report = (id: string, at = '2026-09-26T23:30:00Z', user = 'a'): SmellReport => ({
   id,
   site_id: 'site',
@@ -76,6 +76,21 @@ test('resident filtering uses identity, with distinguishable duplicate display n
     filterJournal(rows, 'Europe/London', '2026-09-27', '2026-09-27', 'b').map((r) => r.id),
     ['2'],
   );
+});
+test('PDF rows are ordered from newest to oldest within the selected range', () => {
+  const rows = [
+    report('old', '2026-09-27T08:00:00Z'),
+    report('new-a', '2026-09-27T11:00:00Z'),
+    report('middle', '2026-09-27T09:00:00Z'),
+    report('new-b', '2026-09-27T11:00:00Z'),
+  ];
+  assert.deepEqual(journalPdfReports(rows).map((row) => row.id), [
+    'new-b',
+    'new-a',
+    'middle',
+    'old',
+  ]);
+  assert.deepEqual(rows.map((row) => row.id), ['old', 'new-a', 'middle', 'new-b']);
 });
 test('complete journal pages beyond 1,000 rows and retains timestamp ties, scoping every query', async () => {
   const rows = Array.from({ length: 1203 }, (_, i) => report(String(i).padStart(5, '0')));
@@ -169,7 +184,11 @@ test('export wind uses nearby historical weather, preserves calm and rejects dis
     /0 km\/h from W \(270°\)/,
   );
   assert.match(journalWind(new Date(at).toISOString(), [sample], 'Europe/London'), /12:50/);
-  assert.equal(journalWind('2026-09-29T12:06:00Z', [sample], 'Europe/London'), 'Unavailable');
+  assert.match(
+    journalWind('2026-09-29T12:06:00Z', [sample], 'Europe/London'),
+    /Nearest available: 16 min earlier/,
+  );
+  assert.equal(journalWind('2026-09-29T13:21:00Z', [sample], 'Europe/London'), 'Unavailable');
   assert.equal(journalWind(new Date(at).toISOString(), [], 'Europe/London'), 'Unavailable');
   assert.match(
     journalWind(

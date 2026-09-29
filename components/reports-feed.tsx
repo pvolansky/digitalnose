@@ -136,8 +136,8 @@ export function ReportsFeed({
         : await loadWeather(
             browserClient(),
             siteId,
-            Math.min(...timestamps),
-            Math.max(...timestamps),
+            Math.min(...timestamps) - 75 * 60000,
+            Math.max(...timestamps) + 75 * 60000,
           );
       const { journalPdfBlob } = await import('@/lib/journal-pdf');
       const blob = await journalPdfBlob({
