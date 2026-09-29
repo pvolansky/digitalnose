@@ -9,3 +9,9 @@ PDFs are generated on demand in the browser, with a same-origin, OFL-licensed No
 Validation: lint, TypeScript, 87 app tests, and production webpack build. Journal tests cover 1,203 reports, timestamp ties, pagination failures, inclusive date boundaries, both London DST transitions, leap years, duplicate resident names, and multi-page PDFs with accented names and long notes. Local browser checks cover the calendar, date changes, resident filtering, reset, and mobile layout. A real single-resident PDF was downloaded and its contents checked; four-page layout fixtures were rendered for visual review. Private QA files remain under ignored `docs/local-reports/journal-qa/`.
 
 The journal loads accessible history into memory; a substantially larger deployment should move calendar counts and bounded exports to server-side queries. The included font covers Latin, Greek and Cyrillic text; additional scripts or emoji may require additional font coverage.
+
+## Historical wind in exports
+
+Each PDF row now includes wind speed (km/h), compass direction and degrees, plus the matched weather timestamp. Export reads the site's stored Open-Meteo history using the existing paginated, authenticated weather loader, extending the report timestamp bounds by 15 minutes. It uses the nearest reading within 15 minutes of each observation (which may fall before or after it); it never substitutes current weather or interpolates missing values. The PDF identifies the source and matching rule. Missing nearby weather is labelled Unavailable; a weather-query failure is also disclosed in the report header. Demo exports use explicitly fictional weather. PDF headers, alternating rows, and calendar accents follow the application's blue palette.
+
+Additional validation covers calm wind, compass bearings, timestamp formatting, nearest matching and unavailable weather. All 88 tests pass, and the updated four-page PDF was visually checked for wrapping and page breaks.

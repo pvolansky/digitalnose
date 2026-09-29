@@ -15,6 +15,8 @@ import { useLiveData } from './use-live-data';
 import { Realtime } from './realtime';
 import { RecentReports } from './recent-reports';
 import { SelectField } from './select-field';
+import { loadWeather } from '@/lib/weather/read';
+import type { WeatherObservation } from '@/lib/weather/types';
 
 function JournalRows({ reports, timezone }: { reports: SmellReport[]; timezone: string }) {
   const [page, setPage] = useState(0);
@@ -57,6 +59,7 @@ export function ReportsFeed({
   today,
   initialError = false,
   demo = false,
+  demoWeather = [],
 }: {
   initial: SmellReport[];
   siteId: string;
@@ -65,6 +68,7 @@ export function ReportsFeed({
   today: string;
   initialError?: boolean;
   demo?: boolean;
+  demoWeather?: WeatherObservation[];
 }) {
   const load = useCallback(
     () => (demo ? Promise.resolve(initial) : loadJournal(browserClient(), siteId)),
@@ -126,6 +130,15 @@ export function ReportsFeed({
       const reports = filterJournal(latest, timezone, from, to, resident);
       if (!reports.length)
         throw new Error('No observations match this selection. Refresh the journal and try again.');
+      const timestamps = reports.map((r) => Date.parse(r.reported_at));
+      const weather = demo
+        ? { history: demoWeather, unavailable: false }
+        : await loadWeather(
+            browserClient(),
+            siteId,
+            Math.min(...timestamps),
+            Math.max(...timestamps),
+          );
       const { journalPdfBlob } = await import('@/lib/journal-pdf');
       const blob = await journalPdfBlob({
         siteName,
@@ -135,6 +148,8 @@ export function ReportsFeed({
         residentLabel,
         residents: journalResidents(latest),
         reports,
+        weather: weather.history,
+        weatherUnavailable: weather.unavailable,
         demo,
       });
       const url = URL.createObjectURL(blob);

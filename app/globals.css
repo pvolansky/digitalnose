@@ -2048,11 +2048,11 @@ footer a {
 .journal-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .journal-weekday { text-align: center; padding: 8px 0; color: var(--muted); font-size: 12px; }
 button.journal-day { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; min-height: 84px; padding: 12px; display: flex; flex-direction: column; align-items: start; justify-content: space-between; gap: 8px; font-weight: 500; }
-button.journal-day:hover:not(:disabled) { background: #edf4f0; }
-button.journal-day.is-selected { background: #e5f1e9; border-color: #32634e; box-shadow: inset 0 0 0 1px #32634e; }
+button.journal-day:hover:not(:disabled) { background: #eef2ff; }
+button.journal-day.is-selected { background: #eef2ff; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 button.journal-day[aria-current="date"] > span:first-child { text-decoration: underline; text-underline-offset: 4px; }
 button.journal-day:disabled { opacity: .3; }
-.journal-day-count { background: #edf4f0; color: #28543e; padding: 3px 7px; border-radius: 6px; font-size: 12px; }
+.journal-day-count { background: #eef2ff; color: #304ecb; padding: 3px 7px; border-radius: 6px; font-size: 12px; }
 .journal-day-heading { margin: 24px 0 14px; flex-wrap: wrap; gap: 10px; }
 .journal-day-heading h2 { font-size: 18px; margin: 0; }
 .journal-pagination { margin-top: 18px; gap: 14px; flex-wrap: wrap; font-size: 13px; }

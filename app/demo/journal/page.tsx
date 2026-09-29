@@ -7,7 +7,7 @@ import { requestTime } from '@/lib/domain/time';
 export const dynamic = 'force-dynamic';
 export default async function DemoJournal() {
   const now = await requestTime();
-  const { site, reports } = demoData(now);
+  const { site, reports, weather } = demoData(now);
   return (
     <Shell site={site} demo>
       <div className="row spread page-heading">
@@ -24,6 +24,7 @@ export default async function DemoJournal() {
         siteName={site.name}
         timezone={site.timezone}
         today={journalDay(now, site.timezone)}
+        demoWeather={weather.history}
         demo
       />
     </Shell>

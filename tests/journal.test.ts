@@ -153,3 +153,40 @@ test('PDF export produces multiple pages for long notes with embedded resident-n
   assert.ok(doc.output().startsWith('%PDF-'));
   assert.ok(doc.getFontList().Journal.includes('normal'));
 });
+
+test('export wind uses nearby historical weather, preserves calm and rejects distant readings', async () => {
+  const { journalWind } = await import('../lib/journal-pdf');
+  const { demoData } = await import('../lib/domain/demo');
+  const at = Date.parse('2026-09-29T12:00:00Z');
+  const sample = {
+    ...demoData(at).weather.history[0],
+    observed_at_utc: '2026-09-29T11:50:00Z',
+    wind_speed_kmh: 0,
+    wind_direction_deg: 270,
+  };
+  assert.match(
+    journalWind(new Date(at).toISOString(), [sample], 'Europe/London'),
+    /0 km\/h from W \(270°\)/,
+  );
+  assert.match(journalWind(new Date(at).toISOString(), [sample], 'Europe/London'), /12:50/);
+  assert.equal(journalWind('2026-09-29T12:06:00Z', [sample], 'Europe/London'), 'Unavailable');
+  assert.equal(journalWind(new Date(at).toISOString(), [], 'Europe/London'), 'Unavailable');
+  assert.match(
+    journalWind(
+      new Date(at).toISOString(),
+      [{ ...sample, wind_speed_kmh: null, wind_direction_deg: null }],
+      'Europe/London',
+    ),
+    /direction unavailable/,
+  );
+  const closer = {
+    ...sample,
+    observed_at_utc: '2026-09-29T12:01:00Z',
+    wind_speed_kmh: 12.5,
+    wind_direction_deg: 22.5,
+  };
+  assert.match(
+    journalWind(new Date(at).toISOString(), [sample, closer], 'Europe/London'),
+    /12.5 km\/h from NNE/,
+  );
+});
