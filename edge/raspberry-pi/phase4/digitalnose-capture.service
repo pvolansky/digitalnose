@@ -1,0 +1,22 @@
+[Unit]
+Description=Digital Nose manual capture command worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=diginose
+Group=diginose
+WorkingDirectory=/home/diginose/digital-nose
+EnvironmentFile=/etc/digitalnose/phase4.env
+Environment=DIGITALNOSE_PHASE4_CONFIG=/etc/digitalnose/phase4.json
+ExecStart=/home/diginose/digital-nose/.venv-phase2/bin/python -m phase4
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+StateDirectory=digitalnose/phase4
+ReadWritePaths=/var/lib/digitalnose/phase4 /var/lib/digitalnose/phase2
+
+[Install]
+WantedBy=multi-user.target

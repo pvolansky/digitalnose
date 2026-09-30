@@ -8,6 +8,7 @@ import { siteContext } from '@/lib/domain/sites';
 import { parseRange } from '@/lib/domain/readings';
 import { Shell } from '@/components/shell';
 import { CreateSite } from '@/components/create-site';
+
 export default async function Dashboard({
   searchParams,
 }: {
@@ -28,19 +29,19 @@ export default async function Dashboard({
       </Shell>
     );
   const range = parseRange(params.range);
-  const device = devices.find((d) => d.id === params.device) || devices[0];
+  const device = devices.find((candidate) => candidate.id === params.device) || devices[0];
   const now = await requestTime();
   const { window, error: rangeError } = parseHistoryWindow(params.from, params.to, now);
   const windowQuery = window
     ? `&from=${encodeURIComponent(new Date(window.start).toISOString())}&to=${encodeURIComponent(new Date(window.end).toISOString())}`
     : '';
-  const [result] = await Promise.allSettled([
+  const [overviewResult] = await Promise.allSettled([
     loadNamedOverview(db, site.id, device?.id, range, now, window),
   ]);
-  const initialError = result.status === 'rejected';
+  const initialError = overviewResult.status === 'rejected';
   const initial =
-    result.status === 'fulfilled'
-      ? result.value
+    overviewResult.status === 'fulfilled'
+      ? overviewResult.value
       : {
           now,
           lastSeenAt: device?.last_seen_at ?? null,
@@ -68,14 +69,14 @@ export default async function Dashboard({
       </div>
       {devices.length > 1 && (
         <div className="row">
-          {devices.map((d) => (
+          {devices.map((candidate) => (
             <Link
-              key={d.id}
+              key={candidate.id}
               className="tag"
-              aria-current={d.id === device?.id ? 'page' : undefined}
-              href={`/dashboard?site=${site.id}&device=${d.id}&range=${range}${windowQuery}`}
+              aria-current={candidate.id === device?.id ? 'page' : undefined}
+              href={`/dashboard?site=${site.id}&device=${candidate.id}&range=${range}${windowQuery}`}
             >
-              {d.name}
+              {candidate.name}
             </Link>
           ))}
         </div>

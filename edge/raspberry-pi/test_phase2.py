@@ -141,6 +141,30 @@ class Phase2(unittest.TestCase):
             self.assertTrue(driver.read().valid)
             self.assertEqual(read.call_count, 4)
 
+    def test_bme_scan_selects_and_reports_each_configured_profile(self):
+        profile = [
+            {'temperature_c': temperature, 'duration_ms': 150,
+             'profile_id': f'bosch-forced-step-{step}-{temperature}C-150ms'}
+            for step, temperature in enumerate((200, 250, 300, 350, 400))
+        ]
+        data = SimpleNamespace(temperature=21.5, humidity=45, pressure=1013.25,
+                               gas_resistance=6000, status=0xB0, heat_stable=True,
+                               gas_index=0, meas_index=0)
+        selected = []
+        def select(step):
+            selected.append(step)
+            data.gas_index = step
+        sensor = SimpleNamespace(data=data, get_sensor_data=lambda: True,
+                                 select_gas_heater_profile=select)
+        driver = BME690Driver(sensor, 1, profile)
+        observations = [driver.read() for _ in range(10)]
+        self.assertEqual(selected, [0, 1, 2, 3, 4, 0, 1, 2, 3, 4])
+        self.assertTrue(all(observation.valid for observation in observations))
+        self.assertEqual([observation.acquisition['heater_target_temperature_c']
+                          for observation in observations[:5]], [200, 250, 300, 350, 400])
+        self.assertTrue(all(observation.metadata['heater_profile_match']
+                            for observation in observations))
+
     def test_bme_complete_read_holds_mux_lock(self):
         class Bus:
             mask = 0

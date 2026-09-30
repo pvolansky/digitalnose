@@ -14,7 +14,10 @@ Phase II adds independent multi-sensor acquisition, durable per-sensor outboxes,
 | --- | --- |
 | **Phase I — Foundation** | Original Raspberry Pi ENS160 collector, aggregator, sync, database/dashboard and initial real-world data collection. |
 | **Phase II — Sensor Array** | TCA9548A, two BME690 sensors, SGP41 and SPS30; independent raw acquisition, durable outboxes, multi-sensor telemetry and calibration dataset collection. |
-| **Phase III — SSM / ML (future)** | Dataset analysis, feature engineering, calibration, restaurant versus not-restaurant modelling, validation and Raspberry Pi inference. |
+| **Phase III — Data quality** | Durable raw archives, quality-aware summaries and inspectable sensor response. |
+| **Phase IV — Manual captures** | Confirmed, labelled, bounded capture sessions with immutable settings and durable recovery. |
+| **Phase V — Profile comparison array (future)** | Separate physical array for simultaneous sensor/profile comparison. |
+| **Phase VI — SSM / ML (future)** | Dataset analysis, feature engineering, calibration, validation and Raspberry Pi inference. |
 
 The Phase II sensor array is now running on the Raspberry Pi alongside the existing ENS160 foundation: both BME690 sensors and SGP41 through the TCA9548A, and SPS30 over USB. Independent acquisition, durable per-sensor outboxes and production cloud ingestion support real-world calibration dataset collection. The first controlled SPS30 observation has been verified through production ingestion, database storage and the dashboard query path. Running hardware does not by itself establish long-term stability or calibrated source detection; continued monitoring and dataset collection remain part of Phase II. Example configurations stay disabled by default for safe commissioning of new installations. No ML model or inference service is included.
 

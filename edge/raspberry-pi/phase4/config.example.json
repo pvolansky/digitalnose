@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "state_path": "/var/lib/digitalnose/phase4/captures.sqlite3",
+  "poll_seconds": 5,
+  "hardware": {
+    "i2c_bus": 1,
+    "mux_address": 112,
+    "mux_lock": "/var/lib/digitalnose/phase2/mux.lock"
+  },
+  "sensor_runtime": {
+    "bme690_01": {"type": "bme690", "mux_channel": 0, "address": 118},
+    "bme690_02": {"type": "bme690", "mux_channel": 1, "address": 118},
+    "sgp41_01": {"type": "sgp41", "mux_channel": 3, "address": 89},
+    "sps30_01": {"type": "sps30", "connection": "usb", "serial_port": "/dev/serial/by-id/VERIFY_ON_DEVICE"}
+  }
+}

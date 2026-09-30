@@ -8,7 +8,9 @@ test('history preserves missing-minute gaps and does not smooth values', () => {
   const groups = splitReadingGaps(selected);
   assert.equal(groups.length, 2);
   assert.deepEqual(groups.flat(), selected);
-  assert.equal(parseRange('invalid'), '24H');
+  assert.equal(parseRange('invalid'), '1H');
+  assert.equal(parseRange(), '1H');
+  assert.equal(parseRange('1H'), '1H');
 });
 
 test('7D history pages beyond the Supabase 1,000-row response cap', async () => {

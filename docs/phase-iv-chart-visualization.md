@@ -1,5 +1,7 @@
 # Phase IV — inspectable sensor response
 
+> Historical note: this chart-quality work preceded the current phase plan. Manual labelled captures are now Phase IV; a separate profile-comparison array moves to Phase V. See [phase-iv-manual-captures.md](phase-iv-manual-captures.md).
+
 Implemented and verified locally on 27 September 2026. The chart-only RPC replacement was also applied successfully to the connected Supabase project. No acquisition, drivers, retention, raw writes, thresholds or ML were changed.
 
 ## A. Root cause and verified data path

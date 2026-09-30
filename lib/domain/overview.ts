@@ -36,7 +36,7 @@ export async function loadOverview(
       deviceId ? loadLatestReading(db, deviceId) : null,
       loadTimeline(db, siteId, start, end),
       loadState(db, siteId),
-      loadReports(db, siteId),
+      loadReports(db, siteId, 3),
       deviceId
         ? db
             .from('devices')

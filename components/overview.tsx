@@ -1,6 +1,4 @@
 'use client';
-import type { Sensor } from '@/lib/sensors/data';
-import { LiveSensorAnalysis } from './sensor-analysis';
 import { useSearchParams } from 'next/navigation';
 import { parseHistoryWindow } from '@/lib/domain/history-window';
 import { useCallback, useState, useMemo } from 'react';
@@ -57,8 +55,6 @@ export function Overview({
     [site.id, device?.id, range, window],
   );
   const live = useLiveData(initial, load, initialError, !demo, !demo);
-  const [sensors, setSensors] = useState<Sensor[]>([]);
-  const [sensorMinutes, setSensorMinutes] = useState<15 | 30 | 60>(60);
   const [selectedMoment, setSelectedMoment] = useState<number | null>(null);
   const data = demo ? initial : live.data;
   return (
@@ -76,10 +72,6 @@ export function Overview({
         </div>
       )}
       <LiveReading
-        particulate={sensors.find(
-          (s) => s.device_id === device?.id && s.sensor_type === 'sps30' && s.enabled,
-        )}
-        showParticulate={!demo && !!device}
         lastSeenAt={data.lastSeenAt}
         reading={data.latest}
         maintenance={
@@ -135,43 +127,6 @@ export function Overview({
           }
           end={data.historyEnd ?? initialWindow?.end ?? data.now}
         />
-        {!demo && (
-          <>
-            <div className="row spread sensor-time-controls">
-              <span className="muted">Sensor detail</span>
-              <div className="segmented" role="group" aria-label="Sensor detail timeframe">
-                {([15, 30, 60] as const).map((minutes) => (
-                  <button
-                    key={minutes}
-                    type="button"
-                    className={sensorMinutes === minutes ? '' : 'secondary'}
-                    aria-pressed={sensorMinutes === minutes}
-                    onClick={() => setSensorMinutes(minutes)}
-                  >
-                    {minutes === 60 ? '1 hour' : `${minutes} min`}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <LiveSensorAnalysis
-              onSensors={setSensors}
-              deviceId={device?.id}
-              now={data.now}
-              timezone={site.timezone}
-              start={Math.max(
-                data.historyStart ?? -Infinity,
-                (data.historyEnd ?? data.now) - sensorMinutes * 60000,
-              )}
-              end={data.historyEnd ?? data.now}
-              selectedAt={selectedMoment}
-              onSelect={setSelectedMoment}
-              events={data.events}
-              reports={data.reports}
-              weather={data.weather.history}
-              readings={data.readings}
-            />
-          </>
-        )}
       </section>
       <WeatherCard
         observation={data.weather.latest}
@@ -181,7 +136,7 @@ export function Overview({
         unavailable={data.weather.unavailable}
         demo={demo}
       />
-      <RecentReports reports={data.recentReports} timezone={site.timezone} />
+      <RecentReports reports={data.recentReports.slice(0, 3)} timezone={site.timezone} />
     </>
   );
 }

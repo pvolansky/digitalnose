@@ -76,13 +76,7 @@ export function HistoryControls({
                 globalThis.window.history.pushState(null, '', href(value));
               }}
             >
-              {value === '3H'
-                ? '3 hours'
-                : value === '6H'
-                  ? '6 hours'
-                  : value === '24H'
-                    ? '24 hours'
-                    : '7 days'}
+              {value.toLowerCase()}
             </a>
           ))}
         </div>

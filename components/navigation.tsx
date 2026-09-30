@@ -1,13 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LuActivity, LuNotebookPen, LuSettings2 } from 'react-icons/lu';
+import { LuActivity, LuNotebookPen, LuScanLine, LuSettings2 } from 'react-icons/lu';
 export function Navigation({ suffix, demo }: { suffix: string; demo: boolean }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Main navigation">
       {[
         { path: demo ? '/demo' : '/dashboard', label: 'Overview', Icon: LuActivity },
+        ...(!demo ? [{ path: '/captures', label: 'Captures', Icon: LuScanLine }] : []),
         { path: demo ? '/demo/journal' : '/report', label: 'Journal', Icon: LuNotebookPen },
         { path: demo ? '/demo/settings' : '/settings', label: 'Settings', Icon: LuSettings2 },
       ].map(({ path, label, Icon }) => (
