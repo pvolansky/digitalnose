@@ -1,5 +1,5 @@
 import { parseHistoryWindow } from '@/lib/domain/history-window';
-import { loadOverview } from '@/lib/domain/overview';
+import { loadNamedOverview } from '@/lib/domain/named-overview';
 import { Overview } from '@/components/overview';
 import { requestTime } from '@/lib/domain/time';
 import { ReportButton } from '@/components/report-form';
@@ -35,7 +35,7 @@ export default async function Dashboard({
     ? `&from=${encodeURIComponent(new Date(window.start).toISOString())}&to=${encodeURIComponent(new Date(window.end).toISOString())}`
     : '';
   const [result] = await Promise.allSettled([
-    loadOverview(db, site.id, device?.id, range, now, window),
+    loadNamedOverview(db, site.id, device?.id, range, now, window),
   ]);
   const initialError = result.status === 'rejected';
   const initial =

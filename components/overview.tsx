@@ -9,7 +9,8 @@ import { HistoryControls } from './history-controls';
 import type { HistoryWindow } from '@/lib/domain/history-window';
 import { LuRefreshCw } from 'react-icons/lu';
 import type { Site, Device } from '@/lib/domain/types';
-import { loadOverview, type OverviewData } from '@/lib/domain/overview';
+import type { OverviewData } from '@/lib/domain/overview';
+import { loadNamedOverview } from '@/lib/domain/named-overview';
 import { currentState } from '@/lib/domain/site-state';
 import { isMaintenanceMinute } from '@/lib/domain/timeline';
 import { ranges, parseRange, type Range } from '@/lib/domain/readings';
@@ -52,7 +53,7 @@ export function Overview({
   );
   const window = selection.window;
   const load = useCallback(
-    () => loadOverview(browserClient(), site.id, device?.id, range, Date.now(), window),
+    () => loadNamedOverview(browserClient(), site.id, device?.id, range, Date.now(), window),
     [site.id, device?.id, range, window],
   );
   const live = useLiveData(initial, load, initialError, !demo, !demo);
