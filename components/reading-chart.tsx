@@ -43,7 +43,6 @@ export function ReadingChart({
   end,
   events = [],
   reports = [],
-  userId = '',
   weather = [],
   selectedMoment,
   onSelectMoment,
@@ -54,7 +53,6 @@ export function ReadingChart({
   end: number;
   events?: StateEvent[];
   reports?: SmellReport[];
-  userId?: string;
   weather?: WeatherObservation[];
   selectedMoment?: number | null;
   onSelectMoment?: (at: number) => void;
@@ -514,7 +512,7 @@ export function ReadingChart({
             const label = group.reports
               .map(
                 (r) =>
-                  `${localTime(Date.parse(r.reported_at))}: ${r.user_id === userId ? 'You' : 'Site member'} · ${r.smell_type || 'Smell'} · ${r.intensity}/5${r.note ? ` · ${r.note}` : ''}`,
+                  `${localTime(Date.parse(r.reported_at))}: ${chartReporterName(r)} · ${r.smell_type || 'Smell'} · ${r.intensity}/5${r.note ? ` · ${r.note}` : ''}`,
               )
               .join('\n');
             return (
@@ -806,7 +804,7 @@ export function ReadingChart({
                     <div key={r.id}>
                       <span>
                         <LuMessageCircle aria-hidden="true" />
-                        {r.user_id === userId ? 'You' : 'Site member'} ·{' '}
+                        {chartReporterName(r)} ·{' '}
                         {r.smell_type || 'Smell reported'} · {r.intensity}/5
                         <small>{localTime(Date.parse(r.reported_at))}</small>
                       </span>
@@ -829,4 +827,8 @@ export function ReadingChart({
       )}
     </section>
   );
+}
+
+export function chartReporterName(report: SmellReport) {
+  return report.reporter_display_name?.trim() || 'Resident';
 }

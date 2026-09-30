@@ -22,7 +22,6 @@ import { RecentReports } from './recent-reports';
 export function Overview({
   initial,
   site,
-  userId,
   device,
   range: initialRange,
   window: initialWindow,
@@ -31,7 +30,6 @@ export function Overview({
 }: {
   initial: OverviewData;
   site: Site;
-  userId: string;
   device?: Device;
   range: Range;
   window?: HistoryWindow;
@@ -130,7 +128,6 @@ export function Overview({
           readings={data.readings}
           events={data.events}
           reports={data.reports}
-          userId={userId}
           timezone={site.timezone}
           start={
             data.historyStart ?? initialWindow?.start ?? data.now - ranges[initialRange] * 3600000

@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { RecentReports } from '../components/recent-reports';
+import { chartReporterName } from '../components/reading-chart';
 import type { SmellReport } from '../lib/domain/types';
 test('recent observations show display names and a neutral fallback', () => {
   for (const [name, expected] of [
@@ -29,6 +30,20 @@ test('recent observations show display names and a neutral fallback', () => {
     assert.ok(html.includes(expected));
     assert.ok(html.includes('Cooking'));
   }
+});
+test('chart tooltips identify reporters by display name with a neutral fallback', () => {
+  const row = {
+    id: 'report',
+    site_id: 'site',
+    user_id: 'user',
+    reported_at: '2026-09-12T12:00:00Z',
+    intensity: 4,
+    note: null,
+    smell_type: 'Cooking',
+  } satisfies SmellReport;
+  assert.equal(chartReporterName({ ...row, reporter_display_name: ' Alex ' }), 'Alex');
+  assert.equal(chartReporterName({ ...row, reporter_display_name: '   ' }), 'Resident');
+  assert.equal(chartReporterName({ ...row, reporter_display_name: null }), 'Resident');
 });
 test('report names expose only display names for same-site reports, never other sites or emails', async () => {
   const db = new PGlite();

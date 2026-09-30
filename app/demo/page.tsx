@@ -32,7 +32,6 @@ export default async function Demo() {
           recentReports: reports,
         }}
         site={site}
-        userId="demo-user"
         device={device}
         range="24H"
         demo

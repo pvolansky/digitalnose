@@ -20,7 +20,7 @@ export default async function Dashboard({
   }>;
 }) {
   const params = await searchParams;
-  const { db, user, site, sites, devices, role } = await siteContext(params.site);
+  const { db, site, sites, devices, role } = await siteContext(params.site);
   if (!site)
     return (
       <Shell>
@@ -92,7 +92,6 @@ export default async function Dashboard({
         initial={initial}
         initialError={initialError}
         site={site}
-        userId={user.id}
         device={device}
         range={range}
       />
