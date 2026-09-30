@@ -45,6 +45,9 @@ test('chart tooltips identify reporters by display name with a neutral fallback'
   assert.equal(chartReporterName({ ...row, reporter_display_name: '   ' }), 'Resident');
   assert.equal(chartReporterName({ ...row, reporter_display_name: null }), 'Resident');
 });
+test('the main chart relies on its white inspector without native SVG tooltips', () => {
+  assert.doesNotMatch(readFileSync('components/reading-chart.tsx', 'utf8'), /<title>/);
+});
 test('report names expose only display names for same-site reports, never other sites or emails', async () => {
   const db = new PGlite();
   try {

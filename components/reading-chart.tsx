@@ -447,7 +447,6 @@ export function ReadingChart({
             );
           }}
         >
-          <title>{`${combined ? 'All measurements' : meta.name} · readings and recorded context`}</title>
           <defs>
             <pattern id={`${id}-unknown`} width="6" height="9" patternUnits="userSpaceOnUse">
               <rect width="6" height="9" fill="var(--paper)" />
@@ -468,9 +467,7 @@ export function ReadingChart({
                 width={Math.max(0, x(s.end) - x(s.start))}
                 height="188"
                 fill={s.value ? 'var(--window-fill)' : 'var(--window-closed-fill)'}
-              >
-                <title>{s.value ? 'Window open' : 'Window closed'}</title>
-              </rect>
+              />
             ))}
           {maintenanceIntervals.map((s) => (
             <rect
@@ -480,9 +477,7 @@ export function ReadingChart({
               width={Math.max(0, x(s.end) - x(s.start))}
               height="188"
               fill="#e7e9ee"
-            >
-              <title>Maintenance · measurements excluded</title>
-            </rect>
+            />
           ))}
           {(metric === 'aqi_max' ? [0, 0.2, 0.4, 0.6, 0.8, 1] : [0, 0.25, 0.5, 0.75, 1]).map(
             (f) => (
@@ -538,7 +533,6 @@ export function ReadingChart({
                   }
                 }}
               >
-                <title>{label}</title>
                 <line
                   x1={x(group.at)}
                   x2={x(group.at)}
@@ -652,7 +646,6 @@ export function ReadingChart({
                   }
                 }}
               >
-                <title>{label}</title>
                 <rect
                   x={position - WIND_LABEL_WIDTH / 2}
                   y="337"
