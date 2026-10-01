@@ -194,9 +194,10 @@ class CaptureWorker:
         interrupted = self.spool.active()
         if not interrupted:
             return
+        if idle_outcomes:
+            try: self.client.cleanup(interrupted,idle_outcomes,now())
+            except Exception: pass
         try:
-            if idle_outcomes:
-                self.client.cleanup(interrupted,idle_outcomes,now())
             self.flush(interrupted)
             self.client.event(interrupted,'failed',at=now(),failure_code='device_service_restart')
             self.spool.set_active(None)
