@@ -2833,6 +2833,21 @@ button.journal-day:disabled {
   color: #344054;
   line-height: 1.5;
 }
+.capture-quality-warning {
+  margin: -4px 0 24px;
+  padding: 14px 16px;
+  border: 1px solid #f0d694;
+  border-radius: 14px;
+  color: #684b0d;
+  background: #fff9e8;
+}
+.capture-quality-warning strong {
+  font-size: 13px;
+}
+.capture-quality-warning p {
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
 .capture-report-table-wrap {
   overflow: hidden;
   border: 1px solid #dfe3ea;

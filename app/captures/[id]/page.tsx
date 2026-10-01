@@ -30,7 +30,7 @@ export default async function CaptureDetail({
     .maybeSingle();
   if (sessionResult.error || !sessionResult.data) notFound();
   const session = sessionResult.data as CaptureSession;
-  const [configurationResult, measurementsResult, shutdownResult, annotationsResult] =
+  const [configurationResult, measurementsResult, shutdownResult, annotationsResult, qualityResult] =
     await Promise.all([
       db.from('capture_configurations').select('*').eq('id', session.configuration_id).single(),
       db
@@ -41,12 +41,14 @@ export default async function CaptureDetail({
         .order('sequence_number'),
       db.from('capture_shutdown_outcomes').select('*').eq('session_id', id).order('sensor_key'),
       db.from('capture_annotations').select('*').eq('session_id', id).order('observed_at'),
+      db.from('capture_quality_flags').select('*').eq('session_id', id).order('recorded_at'),
     ]);
   if (
     configurationResult.error ||
     measurementsResult.error ||
     shutdownResult.error ||
-    annotationsResult.error
+    annotationsResult.error ||
+    qualityResult.error
   ) {
     throw new Error('Unable to load capture details.');
   }
@@ -119,6 +121,16 @@ export default async function CaptureDetail({
           <p>{session.notes}</p>
         </div>
       )}
+      {(qualityResult.data || []).map((flag) => (
+        <div className="capture-quality-warning" key={flag.id}>
+          <strong>Measurement quality notice</strong>
+          <p>
+            Pressure and humidity compensation in this historical capture used an incorrect vendor
+            coefficient mapping. Raw measurements are preserved; affected values have not been
+            rewritten.
+          </p>
+        </div>
+      ))}
       {annotations.length > 0 && (
         <div className="capture-annotations">
           <strong>During capture</strong>
@@ -149,6 +161,7 @@ export default async function CaptureDetail({
           measurements,
           shutdown_outcomes: shutdownResult.data || [],
           annotations,
+          quality_flags: qualityResult.data || [],
           labelling: {
             purpose: session.purpose,
             observed_odour: session.observed_odour,

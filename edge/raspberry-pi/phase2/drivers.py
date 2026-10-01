@@ -34,6 +34,39 @@ class ENS160Driver(SensorDriver):
 
 def bme_class(module, sleep=time.sleep):
     class StandardBME690(module.BME690):
+        def _get_calibration_data(self):
+            """Decode BME690 coefficients using Bosch SensorAPI v1.1 mapping."""
+            super()._get_calibration_data()
+            calibration = self._get_regs(module.COEFF_ADDR1, module.COEFF_ADDR1_LEN)
+            calibration += self._get_regs(module.COEFF_ADDR2, module.COEFF_ADDR2_LEN)
+
+            def signed_word(msb, lsb):
+                value = (msb << 8) | lsb
+                return value - 65536 if value & 0x8000 else value
+
+            # bme690 1.0.0 incorrectly uses coefficient byte 10 as the P5 LSB.
+            # Bosch specifies bytes 5:4. Keep this correction in our adapter so
+            # each vendor instance retains its own sensor-specific state.
+            self.calibration_data.par_p5 = signed_word(calibration[5], calibration[4])
+            self.calibration_data.par_h3 = calibration[28]
+            par_h5 = (calibration[23] << 4) | (calibration[24] >> 4)
+            self.calibration_data.par_h5 = par_h5 - 4096 if par_h5 > 2047 else par_h5
+
+        def _calc_humidity(self, humidity_adc):
+            # bme690 1.0.0 uses par_h1 in the H3 term. Bosch specifies par_h3.
+            calibration = self.calibration_data
+            t_comp = self.ambient_temperature
+            t_fine = (t_comp * 256 - 128) // 5
+            var_h = t_fine - 76800
+            var_h = (((((humidity_adc * 16384) - (calibration.par_h1 * 1048576) -
+                        (calibration.par_h2 * var_h)) + 16384) // 32768) *
+                     ((((((var_h * calibration.par_h4) // 1024) *
+                          ((var_h * calibration.par_h3) / 2048 + 32768)) // 1024) +
+                        2097152) * calibration.par_h5 + 8192) // 16384)
+            var_h -= (((((var_h // 32768) * (var_h / 32768)) // 128) *
+                       calibration.par_h6) // 16)
+            return min(max(var_h, 0), 419430400) // 4096
+
         def set_gas_heater_duration(self, value, nb_profile=0):
             super().set_gas_heater_duration(value, nb_profile)
             if not hasattr(self, '_digitalnose_heater_durations'):
@@ -87,7 +120,7 @@ class BME690Driver(SensorDriver):
                        'heater_profile_id': setting['profile_id'],
                        'heater_target_temperature_c': setting['temperature_c'],
                        'heater_duration_ms': setting['duration_ms'],
-                       'driver_version': 'bme690/1.0.0+digitalnose-standard-wait'}
+                       'driver_version': 'bme690/1.0.0+digitalnose-bosch-calibration-v2'}
         status = ('warming_up' if not d.heat_stable
                   else 'invalid' if not acquisition['gas_valid'] or not profile_match else 'ok')
         return Observation(readings, status, status == 'ok', acquisition=acquisition,

@@ -201,6 +201,35 @@ class Phase2(unittest.TestCase):
         self.assertEqual(calls, [(1, False)])
         self.assertEqual(waits, [0.25])
 
+    def test_bme_uses_bosch_pressure_and_humidity_calibration_mapping(self):
+        calibration = [0] * 37
+        calibration[4], calibration[5], calibration[10] = 0xA0, 0x16, 0x0D
+        calibration[23], calibration[24], calibration[28] = 0xF1, 0x10, 0xE2
+
+        class Vendor:
+            def __init__(self):
+                self.calibration_data = SimpleNamespace(
+                    par_p5=0, par_h1=400, par_h2=2, par_h3=0, par_h4=1,
+                    par_h5=0, par_h6=1, t_fine=128000,
+                )
+            def _get_calibration_data(self):
+                pass
+            def _get_regs(self, register, length):
+                return calibration[:23] if register == 0x8A else calibration[23:]
+            @property
+            def ambient_temperature(self):
+                return 2500
+
+        module = SimpleNamespace(BME690=Vendor, COEFF_ADDR1=0x8A, COEFF_ADDR1_LEN=23,
+                                 COEFF_ADDR2=0xE1, COEFF_ADDR2_LEN=14)
+        sensor = bme_class(module)()
+        sensor._get_calibration_data()
+        self.assertEqual(sensor.calibration_data.par_p5, 5792)
+        self.assertEqual(sensor.calibration_data.par_h3, 0xE2)
+        self.assertEqual(sensor.calibration_data.par_h5, -239)
+        self.assertGreaterEqual(sensor._calc_humidity(21000), 0)
+        self.assertLessEqual(sensor._calc_humidity(21000), 419430400 // 4096)
+
     def test_bme_no_new_data_has_no_fabricated_measurements(self):
         o = BME690Driver(SimpleNamespace(get_sensor_data=lambda: False), 0).read()
         self.assertEqual((o.status, o.readings), ('warming_up', {}))

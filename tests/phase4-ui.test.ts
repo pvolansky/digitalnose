@@ -69,6 +69,9 @@ test('capture report separates heater steps and exports the complete immutable s
   assert.match(page, /immutable_configuration: configuration/);
   assert.match(page, /measurements,\s*shutdown_outcomes:/);
   assert.match(page, /annotations,/);
+  assert.match(page, /capture_quality_flags/);
+  assert.match(page, /quality_flags: qualityResult\.data/);
+  assert.match(page, /Raw measurements are preserved/);
   assert.match(page, /persistence_confirmation/);
   assert.match(detail, /row\.phase === 'recording'/);
   assert.match(detail, /Include startup/);
