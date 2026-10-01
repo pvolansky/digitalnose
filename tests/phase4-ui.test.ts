@@ -36,14 +36,27 @@ test('capture confirmation exposes required labels, optional details and explici
   const types = readFileSync('lib/captures/types.ts', 'utf8');
   for (const text of ['Smell present', 'Low odour', 'Other']) assert.ok(types.includes(text), text);
   for (const text of [
-    'Smell intensity',
+    'Record intensity',
     'Notes',
+    'Purpose',
+    'Odour observed',
+    'Suspected source',
+    'Episode',
+    'Smell changed',
+    'Smell gone',
     'Confirm and request capture',
     'Recording appears only after the device acknowledges acquisition',
   ])
     assert.ok(panel.includes(text), text);
   assert.match(panel, /showModal/);
   assert.match(panel, /Cancel request/);
+  assert.match(panel, /useState\(3\)/);
+  assert.match(panel, /type="range"/);
+  assert.match(panel, /min="1"/);
+  assert.match(panel, /max="5"/);
+  const confirmation = readFileSync('components/capture-confirmation.tsx', 'utf8');
+  for (const text of ['Same throughout', 'Changed', 'Unsure', 'Unanswered remains unconfirmed'])
+    assert.ok(confirmation.includes(text), text);
 });
 
 test('capture report separates heater steps and exports the complete immutable session', () => {
@@ -55,6 +68,8 @@ test('capture report separates heater steps and exports the complete immutable s
   assert.match(detail, /JSON\.stringify\(exportData/);
   assert.match(page, /immutable_configuration: configuration/);
   assert.match(page, /measurements,\s*shutdown_outcomes:/);
+  assert.match(page, /annotations,/);
+  assert.match(page, /persistence_confirmation/);
   assert.match(detail, /row\.phase === 'recording'/);
   assert.match(detail, /Include startup/);
 });

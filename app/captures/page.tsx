@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Shell } from '@/components/shell';
 import { siteContext } from '@/lib/domain/sites';
-import { captureLabel, type CaptureSession } from '@/lib/captures/types';
+import { captureOdour, type CaptureSession } from '@/lib/captures/types';
 import { CapturePanel } from '@/components/capture-panel';
 import { loadCaptureOverview } from '@/lib/captures/read';
 import { requestTime } from '@/lib/domain/time';
@@ -33,6 +33,19 @@ export default async function CapturesPage({
   ]);
   const { data, error } = sessionsResult;
   const sessions = (data || []) as CaptureSession[];
+  const episodeIds = new Set<string>();
+  const episodes = sessions
+    .flatMap((session) => {
+      if (!session.episode_id || episodeIds.has(session.episode_id)) return [];
+      episodeIds.add(session.episode_id);
+      return [
+        {
+          id: session.episode_id,
+          label: `Episode ${session.episode_id.slice(0, 8)} · ${new Intl.DateTimeFormat('en-GB', { timeZone: site.timezone, dateStyle: 'medium' }).format(new Date(session.requested_at))}`,
+        },
+      ];
+    })
+    .slice(0, 5);
   return (
     <Shell site={site} sites={sites}>
       <div className="captures-heading">
@@ -49,6 +62,7 @@ export default async function CapturesPage({
             }
             configuration={captureResult?.configuration || null}
             active={captureResult?.active || null}
+            episodes={episodes}
           />
         )}
       </div>
@@ -67,7 +81,9 @@ export default async function CapturesPage({
                   ? `${Math.max(0, Math.round((Date.parse(session.completed_at) - Date.parse(session.device_started_at)) / 1000))} sec`
                   : `${session.requested_duration_seconds} sec requested`;
               const label =
-                session.label === 'other' ? 'Sensor capture' : captureLabel(session.label);
+                session.purpose === 'commissioning_test'
+                  ? 'Commissioning / test'
+                  : captureOdour(session);
               return (
                 <Link
                   className="capture-item"

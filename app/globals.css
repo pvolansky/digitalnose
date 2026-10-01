@@ -2435,10 +2435,312 @@ button.journal-day:disabled {
   background: var(--paper);
 }
 .capture-label {
+  position: relative;
+  margin: 0;
+  min-width: 0;
+}
+.capture-confirm-dialog {
+  width: min(540px, calc(100% - 32px));
+  max-width: 540px;
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid #dfe4ed;
+  border-radius: 26px;
+  box-shadow:
+    0 30px 90px #16233d2e,
+    0 8px 24px #16233d12;
+}
+.capture-confirm-dialog .report-dialog-heading {
+  align-items: flex-start;
+  margin: 0;
+  padding: 22px 26px 17px;
+  border-bottom: 1px solid #e8ebf1;
+}
+.capture-confirm-dialog .report-dialog-heading h2 {
+  font-size: 24px;
+  letter-spacing: -0.025em;
+}
+.capture-confirm-dialog .report-dialog-heading p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.capture-confirm-dialog .report-close {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  padding: 0;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #f2f4f7;
+  color: #566176;
+}
+.capture-confirm-form {
+  gap: 14px;
+  padding: 18px 26px 22px;
+}
+.capture-label-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.capture-label-field legend,
+.capture-confirm-form > div > label {
+  display: block;
+  margin: 0 0 9px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3749;
+}
+.capture-label-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  padding: 5px;
+  border: 1px solid #d9dfe9;
+  border-radius: 14px;
+  background: #f3f5f8;
+}
+.capture-purpose-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.capture-label input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.capture-label span {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin: 8px 0;
+  justify-content: center;
+  min-height: 38px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: #647087;
+  font-size: 13px;
+  font-weight: 550;
+  text-align: center;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+.capture-label input:checked + span {
+  background: white;
+  color: #234fc4;
+  box-shadow:
+    0 1px 3px #14203a1a,
+    0 0 0 1px #d9dfe8;
+}
+.capture-label input:focus-visible + span {
+  outline: 3px solid #6a82dd;
+  outline-offset: 2px;
+}
+.capture-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+.capture-confirm-form .capture-field-heading label {
+  margin: 0;
+}
+.capture-optional-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.capture-optional-toggle input {
+  margin: 0;
+}
+.capture-field-heading output {
+  min-width: 48px;
+  color: #315ce8;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.capture-intensity-field input[type='range'] {
+  width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  accent-color: #315ce8;
+  cursor: pointer;
+}
+.capture-intensity-field input[type='range']:focus-visible {
+  outline: 3px solid #dfe6ff;
+  outline-offset: 2px;
+}
+.capture-intensity-scale {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 3px;
+  color: #8a94a7;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.capture-confirm-form .select-field-trigger,
+.capture-confirm-form
+  input:not([type='hidden']):not([type='radio']):not([type='checkbox']):not([type='range']),
+.capture-confirm-form textarea {
+  border-radius: 12px;
+  border-color: #cfd6e2;
+  background: #fbfcfe;
+}
+.capture-confirm-form .select-field-trigger:hover,
+.capture-confirm-form
+  input:not([type='hidden']):not([type='radio']):not([type='checkbox']):not([type='range']):hover,
+.capture-confirm-form textarea:hover {
+  border-color: #aeb9cb;
+}
+.capture-confirm-form .select-field-trigger:focus-visible,
+.capture-confirm-form .select-field-trigger[aria-expanded='true'],
+.capture-confirm-form
+  input:not([type='hidden']):not([type='radio']):not([type='checkbox']):not(
+    [type='range']
+  ):focus-visible,
+.capture-confirm-form textarea:focus-visible {
+  border-color: #5d78df;
+  outline: 3px solid #dfe6ff;
+  outline-offset: 0;
+  background: white;
+}
+.capture-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.capture-form-grid label {
+  white-space: nowrap;
+}
+.capture-annotation-actions,
+.capture-confirmation-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.capture-annotation-actions button,
+.capture-confirmation-options button {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+.capture-label-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+.capture-label-summary > span,
+.capture-confirmed {
+  display: grid;
+  gap: 2px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+}
+.capture-label-summary small,
+.capture-confirmed span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.capture-label-summary strong,
+.capture-confirmed strong {
+  font-size: 13px;
+}
+.capture-annotations {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+.capture-annotations > span {
+  display: inline-flex;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #294fae;
+  font-size: 12px;
+}
+.capture-after-confirmation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: white;
+}
+.capture-after-confirmation > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+.capture-after-confirmation .muted {
+  font-size: 12px;
+}
+.capture-confirm-form textarea {
+  width: 100%;
+  height: 64px;
+  min-height: 64px;
+  padding: 13px 14px;
+}
+.capture-confirm-form textarea::placeholder {
+  color: #97a0b2;
+}
+.capture-confirm-form .capture-summary {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #f7f9fc;
+}
+.capture-summary > div {
+  display: grid;
+  gap: 3px;
+  padding: 10px 13px;
+  border-right: 1px solid #e1e6ef;
+}
+.capture-summary > div:last-child {
+  border-right: 0;
+}
+.capture-summary > div span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.capture-summary > div strong {
+  font-size: 14px;
+}
+.capture-confirm-submit {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 13px;
+  font-size: 15px;
 }
 .capture-items {
   display: grid;
@@ -2590,6 +2892,35 @@ button.journal-day:disabled {
   }
   .capture-panel {
     width: 100%;
+  }
+  .capture-confirm-dialog {
+    width: calc(100% - 20px);
+    border-radius: 22px;
+  }
+  .capture-confirm-dialog .report-dialog-heading {
+    padding: 22px 20px 17px;
+  }
+  .capture-confirm-form {
+    padding: 20px;
+  }
+  .capture-label-options {
+    grid-template-columns: 1fr;
+  }
+  .capture-purpose-options,
+  .capture-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .capture-confirm-form .capture-summary {
+    grid-template-columns: 1fr;
+  }
+  .capture-summary > div {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    border-right: 0;
+    border-bottom: 1px solid #e1e6ef;
+  }
+  .capture-summary > div:last-child {
+    border-bottom: 0;
   }
   .capture-item {
     grid-template-columns: 1fr auto 16px;

@@ -208,3 +208,105 @@ test('Phase IV measurements require the session configuration and cannot be chan
     await db.close();
   }
 });
+
+test('Phase IV labelling separates observations, episodes, annotations and confirmation', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
+      create schema auth;create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb);
+      create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+      grant usage on schema public,auth to authenticated,anon,service_role;`);
+    for (const file of readdirSync('supabase/migrations')
+      .filter((file) => file.endsWith('.sql'))
+      .sort())
+      await db.exec(readFileSync(`supabase/migrations/${file}`, 'utf8'));
+    const owner = '00000000-0000-4000-8000-000000000001';
+    const episode = '00000000-0000-4000-8000-000000000901';
+    await db.exec(
+      `insert into auth.users(id) values('${owner}');set role authenticated;set request.jwt.claim.sub='${owner}';`,
+    );
+    const site = (await db.query<{ id: string }>("select public.create_site('Labels') id")).rows[0]
+      .id;
+    const device = (
+      await db.query<{ id: string }>(
+        "insert into public.devices(site_id,name,device_identifier) values($1,'Pi','labels-pi') returning id",
+        [site],
+      )
+    ).rows[0].id;
+    await db.exec('reset role;set role service_role');
+    const config = (
+      await db.query<{ id: string }>(
+        `insert into public.capture_configurations(device_id,version,config_hash,duration_seconds,snapshot,enabled) values($1,'v1',$2,120,'{}',true) returning id`,
+        [device, 'c'.repeat(64)],
+      )
+    ).rows[0].id;
+    await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${owner}'`);
+    const session = (
+      await db.query<{ id: string }>(
+        'select public.request_capture_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) id',
+        [
+          site,
+          device,
+          config,
+          'observation',
+          'restaurant_frying_oily',
+          null,
+          'nearby restaurant',
+          'oily smell',
+          episode,
+          '00000000-0000-4000-8000-000000000902',
+        ],
+      )
+    ).rows[0].id;
+    const label = (
+      await db.query<{ purpose: string; observed_odour: string; label: string }>(
+        'select purpose,observed_odour,label from public.capture_sessions where id=$1',
+        [session],
+      )
+    ).rows[0];
+    assert.deepEqual(label, {
+      purpose: 'observation',
+      observed_odour: 'restaurant_frying_oily',
+      label: 'other',
+    });
+    await db.exec('reset role;set role service_role');
+    await db.query(
+      "update public.capture_sessions set status='preparing',device_preparing_at=now() where id=$1",
+      [session],
+    );
+    await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${owner}'`);
+    const annotation = (
+      await db.query<{ id: string }>(
+        "select public.add_capture_annotation($1,'smell_changed',now()) id",
+        [session],
+      )
+    ).rows[0].id;
+    await db.exec('reset role;set role service_role');
+    await db.query(
+      "update public.capture_sessions set status='recording',device_started_at=now() where id=$1",
+      [session],
+    );
+    await db.query(
+      "update public.capture_sessions set status='completed',completed_at=now() where id=$1",
+      [session],
+    );
+    await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${owner}'`);
+    await db.query("select public.confirm_capture_persistence($1,'changed')", [session]);
+    assert.equal(
+      (
+        await db.query<{ value: string }>(
+          'select persistence_confirmation value from public.capture_sessions where id=$1',
+          [session],
+        )
+      ).rows[0].value,
+      'changed',
+    );
+    await db.exec('reset role;set role service_role');
+    await assert.rejects(
+      db.query("update public.capture_annotations set kind='smell_gone' where id=$1", [annotation]),
+      /immutable/,
+    );
+  } finally {
+    await db.close();
+  }
+});

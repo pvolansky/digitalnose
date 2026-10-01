@@ -30,6 +30,22 @@ export type CaptureSession = {
   stop_requested_at: string | null;
   stopped_early: boolean;
   failure_code: string | null;
+  purpose: 'observation' | 'commissioning_test' | null;
+  observed_odour:
+    'restaurant_frying_oily' | 'other_odour' | 'no_noticeable_odour' | 'unsure_mixed' | null;
+  suspected_source: string | null;
+  episode_id: string | null;
+  persistence_confirmation: 'same_throughout' | 'changed' | 'unsure' | null;
+  persistence_confirmed_at: string | null;
+};
+
+export type CaptureAnnotation = {
+  id: string;
+  session_id: string;
+  created_by: string;
+  kind: 'smell_changed' | 'smell_gone';
+  observed_at: string;
+  created_at: string;
 };
 
 export type CaptureMeasurement = {
@@ -54,3 +70,15 @@ export type CaptureMeasurement = {
 
 export const captureLabel = (label: CaptureSession['label']) =>
   ({ smell_present: 'Smell present', low_odour: 'Low odour', other: 'Other' })[label];
+
+export const captureOdour = (session: CaptureSession) =>
+  session.observed_odour
+    ? (
+        {
+          restaurant_frying_oily: 'Restaurant-like frying/oily odour',
+          other_odour: 'Other odour',
+          no_noticeable_odour: 'No noticeable odour',
+          unsure_mixed: 'Unsure / mixed',
+        } as const
+      )[session.observed_odour]
+    : captureLabel(session.label);
