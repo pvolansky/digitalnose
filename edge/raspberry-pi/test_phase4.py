@@ -50,6 +50,25 @@ class Client:
         self.cleanups.append((session,outcomes,completed_at)); return {'ok':True}
 
 
+class OrderedClient(Client):
+    def __init__(self, fail_upload=False, fail_cleanup=False):
+        super().__init__(fail_upload=fail_upload)
+        self.order, self.fail_cleanup = [], fail_cleanup
+    def measurements(self, session, rows):
+        self.order.append('upload')
+        return super().measurements(session, rows)
+    def cleanup(self, session, outcomes, completed_at):
+        self.order.append('cleanup')
+        if self.fail_cleanup:
+            raise OSError('offline')
+        return super().cleanup(session, outcomes, completed_at)
+
+
+class ReadFailureHardware(Hardware):
+    def read(self):
+        raise OSError('sensor read failed')
+
+
 def fixture(root, duration=2):
     snapshot = {'schema_version':1,'sensors':{'bme690_01':{
         'type':'bme690','enabled':True,'preparation_seconds':0,
@@ -100,6 +119,41 @@ class Phase4Test(unittest.TestCase):
             self.assertEqual(client.rows[0]['sequence_number'],0)
             self.assertEqual(client.events[-1][1],'failed')
             self.assertEqual(client.events[-1][2]['failure_code'],'device_service_restart')
+
+    def test_cleanup_precedes_network_drain_and_offline_rows_remain_durable(self):
+        with tempfile.TemporaryDirectory() as root:
+            config, session = fixture(root); clock = Clock(); client = OrderedClient(fail_upload=True)
+            worker = CaptureWorker(config,client,clock.now,clock.sleep,Hardware)
+            worker.run_capture(session)
+            self.assertEqual(client.order[:2], ['cleanup','upload'])
+            self.assertEqual(client.events[-1][1], 'failed')
+            self.assertEqual(client.events[-1][2]['failure_code'], 'upload_failed_after_acquisition')
+            self.assertEqual(len(worker.spool.pending('session')), 2)
+            self.assertEqual(clock.value, 2)
+            worker.close()
+
+    def test_recording_read_failure_is_retained_and_cleanup_still_runs(self):
+        with tempfile.TemporaryDirectory() as root:
+            config, session = fixture(root,1); clock = Clock(); client = Client()
+            worker = CaptureWorker(config,client,clock.now,clock.sleep,ReadFailureHardware)
+            worker.run_capture(session); worker.close()
+            self.assertEqual(client.events[-1][1], 'completed')
+            self.assertEqual(client.rows[0]['validity']['status'], 'error')
+            self.assertEqual(client.rows[0]['validity']['error_code'], 'OSError')
+            self.assertTrue(client.cleanups[0][1]['bme690_01']['verified'])
+
+    def test_recovery_continues_when_cleanup_evidence_upload_is_offline(self):
+        with tempfile.TemporaryDirectory() as root:
+            config, _session = fixture(root); client = OrderedClient(fail_cleanup=True)
+            spool = CaptureSpool(config['state_path'])
+            spool.append('session',{'sensor_key':'bme690_01','sequence_number':0})
+            spool.set_active('session'); spool.close()
+            worker = CaptureWorker(config,client,hardware=Hardware)
+            worker.recover({'bme690_01':{'attempted':True,'verified':True}})
+            self.assertEqual(client.rows[0]['sequence_number'],0)
+            self.assertEqual(client.events[-1][2]['failure_code'],'device_service_restart')
+            self.assertIsNone(worker.spool.active())
+            worker.close()
 
 
 if __name__ == '__main__': unittest.main()

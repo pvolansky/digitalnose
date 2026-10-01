@@ -38,3 +38,31 @@ The live Pi inventory, immutable configuration and commissioning evidence were r
 Rollback: disable `digitalnose-capture.service`, disable the capture configuration, then re-enable the prior array services. The new tables and historical data are additive and remain intact.
 
 No production cutover or database migration should be performed merely by merging the code. Activation requires the live sensor audit and a reviewed configuration snapshot.
+
+## Commissioning evidence — 1 October 2026
+
+The active immutable configuration is `experimental-200-400C-5step-150ms-v1`
+(`d1a6365f-d3a7-4912-aa17-78a9c28f1d11`, SHA-256
+`3fb5a1972577b0fdd5a6cb0c303f86f42928b8f0ceef919e59ea8e40e15b9ec5`).
+
+Capture `75f70181-d2c6-46ec-bd4d-35945f984df4` completed 122.30 seconds of
+preparation followed by 121.10 seconds of recording. It retained 444 total
+rows, including 228 recording rows. BME690 #2 produced 57 recording rows and
+11 complete five-step cycles (cycles 11–21), with a leading partial cycle 10
+(step 4) and trailing partial cycle 22 (step 0). Both BME690 shutdown records
+read back sleep mode, gas measurement disabled and heater disabled.
+
+The immediately subsequent capture `b091ccc2-ea3a-4bce-bdc1-ee84c67f25b8`
+completed 121.90 seconds of preparation and 121.22 seconds of recording. It
+retained 460 total rows, including 228 recording rows. BME690 #2 again produced
+57 recording rows and 11 complete cycles (cycles 12–22), plus leading partial
+cycle 11 (steps 3–4). Both BME690 shutdown records again verified sleep mode,
+gas measurement disabled and heater disabled.
+
+An early preparation stop retained 36 rows and verified both BME690 shutdowns.
+An abrupt worker kill retained 124 rows and restart cleanup verified both
+BME690 shutdowns. Deterministic tests cover a recording read exception,
+network loss after acquisition, cleanup-before-upload ordering, durable pending
+rows and restart recovery when cleanup evidence upload is unavailable. SGP41
+and SPS30 shutdown commands are recorded as attempted because their installed
+drivers do not expose an equivalent positive idle-state readback.
