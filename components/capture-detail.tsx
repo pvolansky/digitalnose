@@ -142,12 +142,13 @@ export function CaptureMeasurements({
         <h2>Sensor readings</h2>
         <div className="row">
           <label className="capture-startup-toggle">
+            <span>Include startup</span>
             <input
               type="checkbox"
               checked={includeStartup}
               onChange={(event) => setIncludeStartup(event.target.checked)}
             />
-            Include startup
+            <i aria-hidden="true" />
           </label>
           <button className="secondary" type="button" onClick={download}>
             Download JSON
@@ -169,7 +170,7 @@ export function CaptureMeasurements({
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ sensor, metric, samples, step }) => {
+            {rows.map(({ sensor, metric, samples, step }, index) => {
               const values = samples
                 .map((sample) => sample.readings[metric])
                 .filter(
@@ -182,7 +183,14 @@ export function CaptureMeasurements({
                   ? ''
                   : ` · ${heater?.heater_target_temperature_c}°C / ${heater?.heater_duration_ms} ms`;
               return (
-                <tr key={`${sensor}-${metric}-${step ?? 'single'}`}>
+                <tr
+                  key={`${sensor}-${metric}-${step ?? 'single'}`}
+                  className={
+                    index === 0 || rows[index - 1].sensor !== sensor
+                      ? 'sensor-group-start'
+                      : undefined
+                  }
+                >
                   <td>
                     <strong>{names[sensor] || sensor}</strong>
                   </td>

@@ -87,37 +87,38 @@ export default async function CaptureDetail({
           {valid} of {measurements.length} valid samples
         </p>
       </div>
-      <div className="capture-label-summary">
-        <span>
-          <small>Purpose</small>
-          <strong>
-            {session.purpose === 'commissioning_test'
-              ? 'Commissioning / test'
-              : session.purpose === 'observation'
-                ? 'Observation'
-                : 'Historical label'}
-          </strong>
-        </span>
-        {session.suspected_source && (
+      {session.purpose && (
+        <div className="capture-label-summary">
           <span>
-            <small>Suspected source</small>
-            <strong>{session.suspected_source}</strong>
+            <small>Purpose</small>
+            <strong>
+              {session.purpose === 'commissioning_test' ? 'Commissioning / test' : 'Observation'}
+            </strong>
           </span>
-        )}
-        {session.episode_id && (
           <span>
-            <small>Episode</small>
-            <strong>{session.episode_id.slice(0, 8)}</strong>
+            <small>Odour observed</small>
+            <strong>{captureOdour(session)}</strong>
           </span>
-        )}
-        <span>
-          <small>Initial label</small>
-          <strong>
-            {session.observed_odour ? captureOdour(session) : `${captureOdour(session)} (legacy)`}
-          </strong>
-        </span>
-      </div>
-      {session.notes && <p className="capture-report-note">“{session.notes}”</p>}
+          {session.suspected_source && (
+            <span>
+              <small>Suspected source</small>
+              <strong>{session.suspected_source}</strong>
+            </span>
+          )}
+          {session.episode_id && (
+            <span>
+              <small>Episode</small>
+              <strong>{session.episode_id.slice(0, 8)}</strong>
+            </span>
+          )}
+        </div>
+      )}
+      {session.notes && (
+        <div className="capture-report-note">
+          <small>Capture note</small>
+          <p>{session.notes}</p>
+        </div>
+      )}
       {annotations.length > 0 && (
         <div className="capture-annotations">
           <strong>During capture</strong>

@@ -72,4 +72,7 @@ test('capture report separates heater steps and exports the complete immutable s
   assert.match(page, /persistence_confirmation/);
   assert.match(detail, /row\.phase === 'recording'/);
   assert.match(detail, /Include startup/);
+  assert.match(detail, /capture-startup-toggle/);
+  assert.doesNotMatch(page, /Historical label|Initial label|\(legacy\)/);
+  assert.match(page, /Capture note/);
 });
