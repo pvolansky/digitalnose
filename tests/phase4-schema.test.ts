@@ -59,7 +59,7 @@ test('Phase IV sessions are idempotent, exclusive, immutable and keep captured c
         device,
         config,
         'other',
-        null,
+        0,
         null,
         '00000000-0000-4000-8000-000000000102',
       ]),
@@ -250,7 +250,7 @@ test('Phase IV labelling separates observations, episodes, annotations and confi
           config,
           'observation',
           'restaurant_frying_oily',
-          null,
+          0,
           'nearby restaurant',
           'oily smell',
           episode,
@@ -259,8 +259,8 @@ test('Phase IV labelling separates observations, episodes, annotations and confi
       )
     ).rows[0].id;
     const label = (
-      await db.query<{ purpose: string; observed_odour: string; label: string }>(
-        'select purpose,observed_odour,label from public.capture_sessions where id=$1',
+      await db.query<{ purpose: string; observed_odour: string; label: string; intensity: number }>(
+        'select purpose,observed_odour,label,intensity from public.capture_sessions where id=$1',
         [session],
       )
     ).rows[0];
@@ -268,6 +268,7 @@ test('Phase IV labelling separates observations, episodes, annotations and confi
       purpose: 'observation',
       observed_odour: 'restaurant_frying_oily',
       label: 'other',
+      intensity: 0,
     });
     await db.exec('reset role;set role service_role');
     await db.query(

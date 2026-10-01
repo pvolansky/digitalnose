@@ -52,7 +52,7 @@ test('capture confirmation exposes required labels, optional details and explici
   assert.match(panel, /Cancel request/);
   assert.match(panel, /useState\(3\)/);
   assert.match(panel, /type="range"/);
-  assert.match(panel, /min="1"/);
+  assert.match(panel, /min="0"/);
   assert.match(panel, /max="5"/);
   const confirmation = readFileSync('components/capture-confirmation.tsx', 'utf8');
   for (const text of ['Same throughout', 'Changed', 'Unsure', 'Unanswered remains unconfirmed'])

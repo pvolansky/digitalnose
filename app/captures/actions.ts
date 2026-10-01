@@ -18,8 +18,8 @@ export async function requestCapture(_: ActionResult, form: FormData): Promise<A
   )
     return { error: 'Choose what you observed.' };
   const intensity = intensityText ? Number(intensityText) : null;
-  if (intensity !== null && (!Number.isInteger(intensity) || intensity < 1 || intensity > 5))
-    return { error: 'Choose an intensity from 1 to 5.' };
+  if (intensity !== null && (!Number.isInteger(intensity) || intensity < 0 || intensity > 5))
+    return { error: 'Choose an intensity from 0 to 5.' };
   if (notes.length > 1000) return { error: 'Keep notes under 1,000 characters.' };
   if (suspectedSource.length > 200)
     return { error: 'Keep the suspected source under 200 characters.' };

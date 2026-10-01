@@ -220,7 +220,7 @@ export function CapturePanel({
                   id={`${titleId}-intensity`}
                   name="intensity"
                   type="range"
-                  min="1"
+                  min="0"
                   max="5"
                   step="1"
                   value={intensity}
@@ -228,6 +228,7 @@ export function CapturePanel({
                   aria-valuetext={`${intensity} out of 5`}
                 />
                 <div className="capture-intensity-scale" aria-hidden="true">
+                  <span>0</span>
                   <span>1</span>
                   <span>2</span>
                   <span>3</span>
@@ -237,34 +238,32 @@ export function CapturePanel({
               </>
             )}
           </div>
-          <div className="capture-form-grid">
-            <div>
-              <label htmlFor={`${titleId}-source`}>
-                Suspected source <span className="muted">(optional)</span>
-              </label>
-              <input
-                id={`${titleId}-source`}
-                name="suspected_source"
-                maxLength={200}
-                placeholder="Your observation, not a verified source"
-              />
-            </div>
-            <div>
-              <label id={`${titleId}-episode-label`} htmlFor={`${titleId}-episode`}>
-                Episode <span className="muted">(optional)</span>
-              </label>
-              <SelectField
-                id={`${titleId}-episode`}
-                value={episode}
-                onChange={setEpisode}
-                placeholder="No episode"
-                options={[
-                  { value: '', label: 'No episode' },
-                  { value: 'new', label: 'Start new episode' },
-                  ...episodes.map((item) => ({ value: item.id, label: item.label })),
-                ]}
-              />
-            </div>
+          <div>
+            <label htmlFor={`${titleId}-source`}>
+              Suspected source <span className="muted">(optional)</span>
+            </label>
+            <input
+              id={`${titleId}-source`}
+              name="suspected_source"
+              maxLength={200}
+              placeholder="Your observation, not a verified source"
+            />
+          </div>
+          <div>
+            <label id={`${titleId}-episode-label`} htmlFor={`${titleId}-episode`}>
+              Episode <span className="muted">(optional)</span>
+            </label>
+            <SelectField
+              id={`${titleId}-episode`}
+              value={episode}
+              onChange={setEpisode}
+              placeholder="No episode"
+              options={[
+                { value: '', label: 'No episode' },
+                { value: 'new', label: 'Start new episode' },
+                ...episodes.map((item) => ({ value: item.id, label: item.label })),
+              ]}
+            />
           </div>
           <div>
             <label htmlFor={`${titleId}-notes`}>
